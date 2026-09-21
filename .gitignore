@@ -1,0 +1,9 @@
+.build/
+.cache/
+.venv/
+__pycache__/
+.ruff_cache/
+*.egg-info/
+dist/
+.DS_Store
+.superpowers/
