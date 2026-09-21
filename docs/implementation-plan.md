@@ -63,3 +63,8 @@ Review changes, correct defects, and deliver the .app, source, and concise usage
 - Geometry and project tests demonstrated failures first; all 8 now pass.
 - Swift builds use temporary local storage because iCloud adds signing-invalid bundle attributes.
 - User requested a Git checkpoint at the end of each turn; commit working milestones too.
+- Task 1 complete: 8 geometry/project tests passed; checkpoint 8658539.
+- Image orientation and refinement tests demonstrated failure then passed (11 Swift tests total).
+- Renderer validation demonstrated 9 failures then passed (10 Python tests total).
+- Native queue/editor implemented; first real GIMP CLI export produced XCF and both JPEGs.
+- Refinement is an explicit, undoable outline edit, so the displayed selection is the exported one.

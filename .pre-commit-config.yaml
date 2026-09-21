@@ -7,3 +7,15 @@ repos:
         language: system
         pass_filenames: false
         types: [swift]
+      - id: python-check
+        name: Python renderer checks
+        entry: bash scripts/check-python.sh
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: shell-check
+        name: Shell validation
+        entry: bash -c 'shellcheck scripts/*.sh && shfmt -d scripts/*.sh'
+        language: system
+        pass_filenames: false
+        types: [shell]

@@ -3,7 +3,6 @@ import Foundation
 public struct ExportSettings: Codable, Equatable, Sendable {
     public var background = "#F3EFE7"
     public var margin = 0.08
-    public var refine = false
     public init() {}
 }
 
