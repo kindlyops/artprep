@@ -1,7 +1,7 @@
 # Art Prep Implementation Plan
 
 Goal: ship the approved native Mac app for reviewed artwork cutouts and local GIMP exports.
-Spec: ../art-prep-design-memo.html in the containing outputs directory.
+Spec: [Original design memo](art-prep-design-memo.html).
 Architecture: Swift/AppKit canvas inside a native SwiftUI window; Codable project/job files;
 bundled Python renderer invoked by the installed GIMP. No third-party runtime dependencies.
 

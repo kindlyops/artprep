@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Art Prep — local Mac app proposal</title>
+<style>
+:root{--paper:#cfd4cf;--panel:#e6e6df;--ink:#171c1d;--muted:#4a5250;--line:#9aa39d;--teal:#2f5557}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-snap-type:y proximity}
+body{margin:0;background:var(--paper);color:var(--ink);font:20px/1.55 Georgia,serif}
+main{max-width:1140px;margin:auto;padding:0 210px 0 40px}
+section{min-height:94vh;padding:85px 0 65px;scroll-snap-align:start;position:relative}
+h1{font-size:clamp(44px,6vw,74px);line-height:1.05;margin:18px 0 25px;font-weight:normal}
+h2{font-size:39px;line-height:1.15;font-weight:normal;margin:10px 0 25px}
+h3{font-size:23px;margin-bottom:8px}p{max-width:740px}.eyebrow,nav,th,.note,footer{font-family:system-ui,sans-serif}
+.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:var(--teal);font-weight:700}
+.lead{font-size:24px}.note{font-size:15px;color:var(--muted);border-left:3px solid var(--teal);padding-left:18px}
+table{width:100%;border-collapse:collapse;font-size:17px;margin:24px 0}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.07em;border-top:2px solid var(--ink)}
+td,th{padding:12px 12px 12px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.swatch{display:inline-block;width:19px;height:19px;vertical-align:middle;background:#f3efe7;border:1px solid #827d72;margin-right:6px}
+nav{position:fixed;right:22px;top:32%;width:165px;font-size:13px}
+button{font:inherit;cursor:pointer;color:var(--ink);background:transparent;border:0;text-align:left;padding:12px 6px;width:100%}
+button[aria-current]{background:var(--panel);font-weight:700;border-left:3px solid var(--teal)}
+button:focus-visible,a:focus-visible{outline:3px solid var(--teal);outline-offset:3px}
+kbd{font:12px system-ui,sans-serif;display:inline-block;width:23px;margin-right:7px;padding:2px;text-align:center;border:1px solid var(--line);border-radius:4px}
+.progress{position:fixed;top:0;left:0;width:100%;height:4px;background:var(--line);z-index:3}
+.progress span{display:block;height:4px;width:0;background:var(--teal)}
+#chapter{position:fixed;top:22px;right:24px;font:12px system-ui,sans-serif;color:var(--muted)}
+.prompt-original{font:16px/1.6 Georgia,serif;white-space:pre-wrap;background:var(--panel);padding:22px}
+footer{font-size:13px;color:var(--muted)}a{color:var(--teal)}
+@media(max-width:800px){html{scroll-snap-type:none}main{padding:0 25px}nav,#chapter{display:none}section{min-height:auto;padding:65px 0}body{font-size:18px}table{font-size:15px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;scroll-snap-type:none}}
+@media print{body{background:white;font-size:12pt}main{max-width:none;padding:0}nav,.progress,#chapter{display:none}section{min-height:0;padding:25px 0;break-after:page}section:after{content:attr(data-key);position:absolute;bottom:8px;right:0;border:1px solid;padding:2px 8px}h1{font-size:36pt}h2{font-size:26pt}}
+</style>
+</head>
+<body>
+<div class="progress" role="progressbar" aria-label="Reading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+<div id="chapter" aria-live="polite"></div>
+<nav aria-label="Section navigation"></nav>
+<main>
+<section id="recommendation" data-label="Recommendation" data-key="0">
+<div class="eyebrow">Proposal · 19 September 2026</div>
+<h1>Art Prep.<br>Your artwork, ready to post.</h1>
+<p class="lead">A small native Mac app that turns a photographed painting and its wooden backing into a clean composition on a plain background.</p>
+<p>Add photos, mark the outside edge of the wood, review the cutout, and export. The app automates the GIMP steps used for the four paintings already completed in this conversation.</p>
+<table><thead><tr><th>Decision</th><th>Proposed default</th></tr></thead><tbody>
+<tr><td>Processing</td><td>On your Mac, through your installed GIMP 3. No photo uploads or model downloads.</td></tr>
+<tr><td>Background</td><td><span class="swatch"></span>Warm off-white, #F3EFE7, with a color picker.</td></tr>
+<tr><td>Artwork boundary</td><td>You mark and approve it; the app can refine the nearby edge.</td></tr>
+<tr><td>Delivery</td><td>A double-clickable .app, its source code, and a short usage guide.</td></tr>
+</tbody></table>
+<p class="note">This is a proposed application, not an already implemented one. Choosing the artwork boundary remains a human step. The app will automate the rest.</p>
+</section>
+<section id="workflow" data-label="How you use it" data-key="1">
+<div class="eyebrow">The workflow</div><h2>One outline per photo.</h2>
+<table><thead><tr><th>Step</th><th>Your action</th><th>App behavior</th></tr></thead><tbody>
+<tr><td>1 · Add</td><td>Select one or several JPEG or PNG files.</td><td>Shows a photo queue and a color-managed preview.</td></tr>
+<tr><td>2 · Outline</td><td>Click around the outer edge of the wooden backing. Use four corners for a rectangular board; add points for irregular edges.</td><td>Shows a closed outline. Drag points to adjust them; zoom, undo, insert, or delete a point.</td></tr>
+<tr><td>3 · Review</td><td>Check the cutout against the selected background.</td><td>Offers optional edge refinement, a before/after view, and margins. Refinement can be turned off where an object touches the frame.</td></tr>
+<tr><td>4 · Export</td><td>Choose an output folder and export the ready photos.</td><td>Runs jobs sequentially, reports progress, and provides links to the results. A failed photo does not discard the others.</td></tr>
+</tbody></table>
+<p>The default composition uses a 4:5 canvas for portrait artwork and a 3:2 canvas for landscape artwork, matching the recent edits. The app fits the complete outlined artwork within the margins.</p>
+<p>Each photo produces an editable GIMP project, a full-size JPEG, and a social JPEG with a 2,000-pixel long edge and sRGB profile. The project contains the masked artwork, the background, and a hidden cropped reference layer.</p>
+<p class="note">Exposure, white balance, and the painting itself stay as photographed. This tool prepares the surroundings; it does not repaint or generate artwork.</p>
+</section>
+<section id="implementation" data-label="Local design" data-key="2">
+<div class="eyebrow">Implementation approach</div><h2>Native controls. The existing GIMP workflow.</h2>
+<p>A Swift/AppKit interface handles file selection, previews, outline editing, and progress. A local JSON job file records the source path, image coordinates, outline, background, margins, and output settings. The app passes validated jobs to a bundled Python script running inside GIMP.</p>
+<p>The renderer generalizes the scripts already used here: create a mask, compose on the chosen background, save the layered project, and export color-managed JPEGs. All coordinates refer to the correctly oriented source image, independently of preview zoom or window size.</p>
+<table><thead><tr><th>Considered approach</th><th>Trade-off</th></tr></thead><tbody>
+<tr><td>Native app + guided outline · recommended</td><td>Direct control over what is preserved, while automating the repetitive editing and export work.</td></tr>
+<tr><td>Fully automatic background detection</td><td>Less clicking, but uncertain separation where cords, charts, shadows, and wood touch. Deferred from the first version.</td></tr>
+<tr><td>Codex-operated command-line tool</td><td>Smaller build, but would still require Codex or terminal use. Does not meet your preferred workflow.</td></tr>
+</tbody></table>
+<p>The job file also allows Codex to reproduce the same work without operating the interface. Saved selections can be reopened and re-exported with another background color.</p>
+<p class="note">The app relies on the GIMP installation already on this Mac. If GIMP is missing or incompatible, it explains what to fix before export. No extra image-processing service is required.</p>
+</section>
+<section id="validation" data-label="Checks & delivery" data-key="3">
+<div class="eyebrow">Quality checks</div><h2>Preserve the artwork. Verify the exports.</h2>
+<table><thead><tr><th>Case</th><th>Expected result</th></tr></thead><tbody>
+<tr><td>Rectangle, staggered boards, pale wood</td><td>The outline can retain the complete backing, with no chart or cord outside it.</td></tr>
+<tr><td>Zoom, resizing, rotated-photo metadata</td><td>Preview and exported mask match the same source coordinates.</td></tr>
+<tr><td>Invalid or crossing outline</td><td>A clear correction message; export waits until the outline is valid.</td></tr>
+<tr><td>Missing file, GIMP failure, unwritable folder</td><td>A useful per-photo error, retained selections, and a retry path.</td></tr>
+<tr><td>Repeated export</td><td>Original photos are untouched, and existing outputs are not silently overwritten.</td></tr>
+<tr><td>Finished files</td><td>XCF opens with an editable mask; JPEG dimensions and sRGB profiles are verified.</td></tr>
+</tbody></table>
+<p>Implementation will include geometry and job-validation tests, renderer checks with small fixtures, and a visual end-to-end check using the existing painting examples. The final handoff includes the app, source, and concise instructions for adding photos, correcting outlines, and exporting.</p>
+<footer>Evidence: the four completed painting edits; the working local GIMP 3.2.6 installation; the existing edge-refinement and GIMP export scripts. Assumptions: JPEG/PNG inputs, user-reviewed outlines, no automatic perspective or exposure correction.</footer>
+</section>
+<section id="appendix-original-prompt" data-label="Original request" data-key="4">
+<div class="eyebrow">Appendix</div><h2>Original prompt</h2>
+<h3>Initial request</h3>
+<pre class="prompt-original">thank you! can you write a tool, script, or app that will help me automate this process in the future?</pre>
+<h3>Follow-up: preferred way to use it</h3>
+<pre class="prompt-original">A local app I can use myself</pre>
+<p class="note">Prior steering: local software, GIMP, warm off-white backgrounds, preserve paintings and wooden backings, and produce editable projects plus JPEGs for social media. The four previously edited photographs provide acceptance examples.</p>
+</section>
+</main>
+<script>
+const sections=[...document.querySelectorAll('main > section')];
+const nav=document.querySelector('nav');
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let active=-1;
+function go(index){sections[Math.max(0,Math.min(sections.length-1,index))].scrollIntoView({behavior:reduced?'instant':'smooth'});}
+const buttons=sections.map((section,index)=>{
+ const button=document.createElement('button');button.type='button';
+ button.setAttribute('aria-keyshortcuts',section.dataset.key);
+ const key=document.createElement('kbd');key.textContent=section.dataset.key;
+ button.append(key,document.createTextNode(section.dataset.label));
+ button.addEventListener('click',()=>go(index));nav.append(button);return button;
+});
+function update(){
+ let index=0;sections.forEach((section,i)=>{if(section.getBoundingClientRect().top<innerHeight*.45)index=i;});
+ if(index!==active){active=index;buttons.forEach((button,i)=>{if(i===active)button.setAttribute('aria-current','step');else button.removeAttribute('aria-current');});
+ document.querySelector('#chapter').textContent=(active+1)+' / '+sections.length+' · '+sections[active].dataset.label;
+ history.replaceState(null,'','#'+sections[active].id);}
+ const available=document.documentElement.scrollHeight-innerHeight;
+ const percent=available>0?Math.max(0,Math.min(100,scrollY/available*100)):100;
+ document.querySelector('.progress span').style.width=percent+'%';
+ document.querySelector('.progress').setAttribute('aria-valuenow',Math.round(percent));
+}
+addEventListener('scroll',update,{passive:true});addEventListener('resize',update);
+addEventListener('keydown',event=>{
+ if(event.defaultPrevented||event.metaKey||event.ctrlKey||event.altKey||event.target.isContentEditable||/INPUT|TEXTAREA|SELECT/.test(event.target.tagName))return;
+ if(event.target.tagName==='BUTTON'&&(event.key===' '||event.key==='Enter'))return;
+ let key=event.key.toUpperCase();if(key==='I'||key==='L')key='1';if(key==='O')key='0';
+ let next=/^[0-4]$/.test(key)?Number(key):null;
+ if(['ArrowRight','ArrowDown','PageDown',' '].includes(event.key))next=active+1;
+ if(['ArrowLeft','ArrowUp','PageUp'].includes(event.key))next=active-1;
+ if(event.key==='Home')next=0;if(event.key==='End')next=sections.length-1;
+ if(next!==null){event.preventDefault();go(next);}
+});
+try{const initial=document.getElementById(decodeURIComponent(location.hash.slice(1)));if(initial)initial.scrollIntoView();}catch{}
+update();
+</script>
+</body>
+</html>
