@@ -1,5 +1,7 @@
 # Art Prep
 
+![Art Prep showing a chickadee painting and wooden frame on a warm off-white background](docs/images/art-prep-preview.jpg)
+
 A local Mac app for preparing photographs of paintings with wooden or irregular frames.
 You mark the artwork boundary; Art Prep uses your installed GIMP to replace the surrounding
 background and export editable and social-ready copies. No photo uploads or cloud services.
