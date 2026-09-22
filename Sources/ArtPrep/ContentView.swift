@@ -31,13 +31,13 @@ struct ContentView: View {
         }
         .toolbar {
             Button(action: workspace.addPhotos) { Label("Add Photos", systemImage: "plus") }
-                .disabled(workspace.busy || workspace.exporting)
+                .disabled(workspace.locked)
             Button(action: workspace.openProject) { Label("Open Project", systemImage: "folder") }
-                .disabled(workspace.exporting)
+                .disabled(workspace.locked)
             Button(action: workspace.saveProject) {
                 Label("Save Project", systemImage: "square.and.arrow.down")
             }
-            .disabled(workspace.photos.isEmpty || workspace.exporting)
+            .disabled(workspace.photos.isEmpty || workspace.locked)
             Spacer()
             Text("LOCAL · GIMP").font(.caption).foregroundStyle(.secondary)
         }
@@ -74,9 +74,9 @@ struct ContentView: View {
                         }
                     }.padding(.vertical, 5).tag(photo.id)
                 }
-            }.listStyle(.sidebar).disabled(workspace.exporting)
+            }.listStyle(.sidebar).disabled(workspace.locked)
             Button("Remove Photo", action: workspace.removePhoto)
-                .disabled(workspace.selected == nil || workspace.exporting).padding()
+                .disabled(workspace.selected == nil || workspace.locked).padding()
         }.padding(.top, 20)
     }
 
@@ -96,15 +96,17 @@ struct ContentView: View {
             if let photo = workspace.current, let image = workspace.image {
                 CanvasView(
                     image: image, photo: photo, settings: workspace.settings,
-                    preview: workspace.preview, zoom: workspace.zoom, onEdit: workspace.edit
+                    preview: workspace.preview, zoom: workspace.zoom, enabled: !workspace.locked,
+                    onEdit: workspace.edit
                 )
-                .disabled(workspace.exporting)
+                .disabled(workspace.locked)
             } else {
                 ContentUnavailableView(
                     "Give your artwork room to shine",
                     systemImage: "photo.artframe",
                     description: Text(
-                        "Add a JPEG or PNG, mark the outside of its frame, and export a clean background."
+                        "Add a JPEG or PNG, mark the outside of its frame, "
+                            + "and export a clean background."
                     )
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -133,7 +135,8 @@ struct ContentView: View {
                 Slider(value: $workspace.settings.margin, in: 0...0.3, step: 0.01)
             }
             Text(
-                "Drag points to adjust. Click an edge to add a point. Select a point and press Delete to remove it."
+                "Drag points to adjust. Click an edge to add a point. "
+                    + "Select a point and press Delete to remove it."
             )
             .font(.caption).foregroundStyle(.secondary)
             Spacer()
@@ -144,7 +147,8 @@ struct ContentView: View {
                 action: workspace.chooseOutput
             ).lineLimit(1)
             Button(
-                "Export \(workspace.ready.count) Ready Photo\(workspace.ready.count == 1 ? "" : "s")",
+                "Export \(workspace.ready.count) Ready "
+                    + "Photo\(workspace.ready.count == 1 ? "" : "s")",
                 action: workspace.exportReady
             )
             .buttonStyle(.borderedProminent).controlSize(.large)
@@ -152,7 +156,7 @@ struct ContentView: View {
             if let folder = workspace.outputFolder {
                 Button("Show Exports") { NSWorkspace.shared.open(folder) }
             }
-        }.padding(20).disabled(workspace.exporting)
+        }.padding(20).disabled(workspace.locked)
     }
 
     private var outlineControls: some View {

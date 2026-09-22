@@ -9,5 +9,6 @@ let package = Package(
         .target(name: "ArtPrepCore"),
         .executableTarget(name: "ArtPrep", dependencies: ["ArtPrepCore"]),
         .testTarget(name: "ArtPrepCoreTests", dependencies: ["ArtPrepCore"]),
+        .testTarget(name: "ArtPrepAppTests", dependencies: ["ArtPrep", "ArtPrepCore"]),
     ]
 )

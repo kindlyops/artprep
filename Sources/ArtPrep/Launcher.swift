@@ -55,6 +55,7 @@ struct ArtPrepApp: App {
     var body: some Scene {
         WindowGroup("Art Prep") {
             ContentView(workspace: workspace)
+                .background(WindowGuard(delegate: delegate))
                 .frame(minWidth: 1000, minHeight: 650)
                 .onAppear {
                     delegate.workspace = workspace
@@ -64,24 +65,51 @@ struct ArtPrepApp: App {
         .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("Add Photos…", action: workspace.addPhotos).keyboardShortcut("o")
+                Button("Add Photos…", action: workspace.addPhotos).keyboardShortcut("o").disabled(
+                    workspace.locked)
                 Button("Open Project…", action: workspace.openProject).keyboardShortcut(
                     "o", modifiers: [.command, .shift])
                 Button("Save Project…", action: workspace.saveProject).keyboardShortcut("s")
+                    .disabled(workspace.locked)
             }
             CommandGroup(replacing: .undoRedo) {
-                Button("Undo Outline Edit", action: workspace.undo).keyboardShortcut("z")
+                Button("Undo Outline Edit", action: workspace.undo).keyboardShortcut("z").disabled(
+                    workspace.locked)
             }
         }
     }
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     weak var workspace: Workspace?
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard workspace?.locked != true else { return false }
+        guard workspace?.confirmDiscard() != false else { return false }
+        workspace?.dirty = false
+        return true
+    }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard workspace?.exporting != true else { return .terminateCancel }
+        guard workspace?.locked != true else { return .terminateCancel }
         return workspace?.confirmDiscard() == false ? .terminateCancel : .terminateNow
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+}
+
+struct WindowGuard: NSViewRepresentable {
+    let delegate: AppDelegate
+    func makeNSView(context: Context) -> WindowGuardView {
+        let view = WindowGuardView()
+        view.guardDelegate = delegate
+        return view
+    }
+    func updateNSView(_ view: WindowGuardView, context: Context) {}
+}
+
+final class WindowGuardView: NSView {
+    weak var guardDelegate: AppDelegate?
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.delegate = guardDelegate
+    }
 }

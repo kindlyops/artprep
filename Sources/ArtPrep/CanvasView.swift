@@ -8,6 +8,7 @@ struct CanvasView: NSViewRepresentable {
     let settings: ExportSettings
     let preview: Bool
     let zoom: Double
+    let enabled: Bool
     let onEdit: ([Vertex], Bool) -> Void
 
     func makeNSView(context: Context) -> CanvasScroll {
@@ -30,6 +31,7 @@ struct CanvasView: NSViewRepresentable {
         view.preview = preview
         view.settings = settings
         view.zoom = zoom
+        view.enabled = enabled
         view.onEdit = onEdit
         view.updateSize(viewport: scroll.contentSize)
     }
@@ -50,6 +52,7 @@ final class OutlineView: NSView {
     var preview = false
     var settings = ExportSettings()
     var zoom = 1.0
+    var enabled = true
     var onEdit: (([Vertex], Bool) -> Void)?
     private var scale = 1.0
     private var origin = Vertex(x: 0, y: 0)
@@ -125,8 +128,15 @@ final class OutlineView: NSView {
         NSColor.systemYellow.setStroke()
         path.lineWidth = 1.5
         path.stroke()
+        var previous: NSPoint?
         for (index, point) in points.enumerated() {
             let center = viewPoint(point)
+            if let previous, index != selectedPoint,
+                hypot(center.x - previous.x, center.y - previous.y) < 14
+            {
+                continue
+            }
+            previous = center
             let dot = NSBezierPath(
                 ovalIn: NSRect(x: center.x - 4, y: center.y - 4, width: 8, height: 8))
             (index == selectedPoint ? NSColor.systemOrange : NSColor.white).setFill()
@@ -138,7 +148,7 @@ final class OutlineView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard !preview else { return }
+        guard enabled, !preview else { return }
         window?.makeFirstResponder(self)
         let location = convert(event.locationInWindow, from: nil)
         guard let point = mapping.toImage(Vertex(x: location.x, y: location.y)) else { return }
@@ -186,7 +196,9 @@ final class OutlineView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard !preview, let index = selectedPoint, points.indices.contains(index) else { return }
+        guard enabled, !preview, let index = selectedPoint, points.indices.contains(index) else {
+            return
+        }
         let location = convert(event.locationInWindow, from: nil)
         guard let point = mapping.toImage(Vertex(x: location.x, y: location.y)) else { return }
         points[index] = point
@@ -200,7 +212,7 @@ final class OutlineView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if [51, 117].contains(event.keyCode), !preview,
+        if [51, 117].contains(event.keyCode), enabled, !preview,
             let index = selectedPoint, points.indices.contains(index)
         {
             points.remove(at: index)

@@ -69,6 +69,8 @@ def render(job, folder):
     try:
         if (image.get_width(), image.get_height()) != (job["width"], job["height"]):
             raise ValueError("Source dimensions do not match the reviewed outline.")
+        if image.get_base_type() != Gimp.ImageBaseType.RGB:
+            image.convert_rgb()
         make_layers(image, job)
         if not Gimp.file_save(
             Gimp.RunMode.NONINTERACTIVE,

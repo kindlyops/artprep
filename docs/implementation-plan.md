@@ -68,3 +68,15 @@ Review changes, correct defects, and deliver the .app, source, and concise usage
 - Renderer validation demonstrated 9 failures then passed (10 Python tests total).
 - Native queue/editor implemented; first real GIMP CLI export produced XCF and both JPEGs.
 - Refinement is an explicit, undoable outline edit, so the displayed selection is the exported one.
+- Final review found mirrored refinement sampling, stale asynchronous refinement, and unguarded menu
+  operations. Added asymmetric-image and operation-guard tests; watched failures and fixed them.
+- Grayscale integration initially failed the required sRGB/warm-background check. Convert grayscale
+  GIMP images to RGB before composition; the full 13-test Python suite now passes with real GIMP.
+- Closing a dirty window and cancelling initially stranded the editor; a window-close delegate now
+  checks before closing. Repeated native UI test keeps the window and all three outlines intact.
+- Native UI checks: open three-photo project, cutout preview, reset/undo, mark four new corners,
+  close outline, save project and compare all photo records/settings against the original project.
+- Real EJM01140 export: 4093×5116 full JPEG, 1600×2000 social JPEG, embedded sRGB profiles.
+  Reopened XCF in GIMP: three layers, editable artwork mask, background, hidden cropped reference.
+- Release decision: keep feature/art-prep local as requested; GitHub publishing is deferred by user.
+- Packaging uses a ZIP signed before entering iCloud storage, avoiding iCloud FinderInfo attributes.

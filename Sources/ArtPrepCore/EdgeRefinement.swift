@@ -12,8 +12,6 @@ public enum EdgeRefinement {
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
             let data = context.data
         else { throw ArtPrepError("Not enough memory to refine this photo.") }
-        context.translateBy(x: 0, y: CGFloat(image.height))
-        context.scaleBy(x: 1, y: -1)
         context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         let sampler = PixelSampler(data: data.assumingMemoryBound(to: UInt8.self), size: size)
         var perimeter = 0.0

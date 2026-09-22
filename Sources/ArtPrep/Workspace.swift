@@ -23,10 +23,13 @@ final class Workspace: ObservableObject {
     private var projectURL: URL?
     private var loadTask: Task<Void, Never>?
 
+    var locked: Bool { busy || exporting }
+
     var current: PhotoRecord? { photos.first { $0.id == selected } }
     var ready: [PhotoRecord] { photos.filter(\.closed) }
 
     func addPhotos() {
+        guard !locked else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.jpeg, .png]
         panel.allowsMultipleSelection = true
@@ -71,6 +74,7 @@ final class Workspace: ObservableObject {
     }
 
     func edit(points: [Vertex], closed: Bool) {
+        guard !locked else { return }
         guard let index = photos.firstIndex(where: { $0.id == selected }) else { return }
         let before = photos[index]
         guard before.points != points || before.closed != closed else { return }
@@ -89,6 +93,7 @@ final class Workspace: ObservableObject {
     }
 
     func refine() {
+        guard !locked else { return }
         guard let photo = current, photo.closed, let image else { return }
         busy = true
         Task {
@@ -96,15 +101,18 @@ final class Workspace: ObservableObject {
                 let points = try await Task.detached {
                     try EdgeRefinement.refine(photo.points, image: image.image)
                 }.value
-                if selected == photo.id { edit(points: points, closed: true) }
+                busy = false
+                if current == photo { edit(points: points, closed: true) }
                 message =
-                    "Refined nearby edges within 8 photo pixels. Review the result; Undo restores your outline."
+                    "Refined nearby edges within 8 photo pixels. "
+                    + "Review the result; Undo restores your outline."
             } catch { self.error = error.localizedDescription }
             busy = false
         }
     }
 
     func undo() {
+        guard !locked else { return }
         guard let id = selected, let previous = history[id]?.popLast(),
             let index = photos.firstIndex(where: { $0.id == id })
         else { return }
@@ -114,6 +122,7 @@ final class Workspace: ObservableObject {
     }
 
     func removePhoto() {
+        guard !locked else { return }
         guard let id = selected else { return }
         photos.removeAll { $0.id == id }
         history[id] = nil
@@ -123,8 +132,10 @@ final class Workspace: ObservableObject {
     }
 
     func saveProject() {
+        guard !locked else { return }
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = projectURL?.lastPathComponent ?? "Paintings.artprep"
+        panel.nameFieldStringValue =
+            projectURL?.deletingPathExtension().lastPathComponent ?? "Paintings"
         panel.allowedContentTypes = [UTType(filenameExtension: "artprep") ?? .json]
         guard panel.runModal() == .OK, var url = panel.url else { return }
         if url.pathExtension != "artprep" { url.appendPathExtension("artprep") }
@@ -140,6 +151,7 @@ final class Workspace: ObservableObject {
     }
 
     func openProject() {
+        guard !locked else { return }
         guard confirmDiscard() else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "artprep") ?? .json, .json]
@@ -168,6 +180,7 @@ final class Workspace: ObservableObject {
     }
 
     func chooseOutput() {
+        guard !locked else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -178,6 +191,7 @@ final class Workspace: ObservableObject {
     }
 
     func exportReady() {
+        guard !locked else { return }
         guard let gimp = Renderer.installedGimp() else {
             error = "Install GIMP 3 in Applications, then try Export again."
             return
@@ -208,7 +222,8 @@ final class Workspace: ObservableObject {
                 }
             }
             message =
-                "Exported \(completed) of \(jobs.count). Files are in \(outputFolder.lastPathComponent)."
+                "Exported \(completed) of \(jobs.count). "
+                + "Files are in \(outputFolder.lastPathComponent)."
             exporting = false
         }
     }
