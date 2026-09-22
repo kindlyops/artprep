@@ -7,7 +7,8 @@ background and export editable and social-ready copies. No photo uploads or clou
 ## Use the app
 
 Requires macOS 14 or later and **GIMP 3** in `/Applications` or `~/Applications`.
-The supplied build is for Apple Silicon. Unzip **Art Prep.zip**, move **Art Prep.app** to
+Download the Apple Silicon build from [GitHub Releases](https://github.com/kindlyops/artprep/releases/latest).
+Unzip the downloaded archive, move **Art Prep.app** to
 Applications, and open it. This personal build is locally signed, not Apple-notarized.
 Keep the app outside an iCloud-synced Documents folder: iCloud can add bundle attributes
 that invalidate local code-signing verification.
@@ -45,13 +46,13 @@ cropped to the output canvas, so retain the original photo as your master.
 
 ## Git history
 
-This folder is a Git repository on `feature/art-prep`, with working progress checkpoints.
-`git log --oneline` shows them. No remote is configured and nothing has been pushed.
-To use a GitHub repository later, create an empty repository there, then run:
+The source and progress history are hosted at [kindlyops/artprep](https://github.com/kindlyops/artprep).
+Released source is on `main`; development changes use feature branches and pull requests.
+Run `git log --oneline` to follow the checkpoints. Release tags identify the corresponding source.
 
 ```sh
-git remote add origin YOUR_GITHUB_REPOSITORY_URL
-git push -u origin feature/art-prep
+git clone https://github.com/kindlyops/artprep.git
+cd artprep
 ```
 
 Only source, tests, build scripts, and documentation are tracked. Photos, generated exports,
