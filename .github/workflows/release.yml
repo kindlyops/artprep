@@ -1,0 +1,56 @@
+name: Release macOS app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: artprep-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      ARTPREP_NOTARY_PROFILE: ${{ vars.ARTPREP_NOTARY_PROFILE }}
+      ARTPREP_SIGNING_IDENTITY: ${{ vars.ARTPREP_SIGNING_IDENTITY }}
+    steps:
+      - name: Check out the merged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Locate local development tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' /opt/homebrew/bin "$HOME/.local/bin" "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Prepare the test environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          for tool in uv ruff ty shellcheck shfmt magick gh swift; do
+            command -v "$tool" || { echo "Install $tool on the release runner." >&2; exit 1; }
+          done
+          uv venv --python 3.13
+          uv pip install --require-hashes -r requirements-dev.txt
+          shellcheck scripts/*.sh
+          shfmt -d scripts/*.sh
+
+      - name: Build, notarize, and publish the next patch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/release.sh auto

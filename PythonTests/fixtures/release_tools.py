@@ -10,6 +10,11 @@ args = sys.argv[1:]
 failure = os.environ.get("FAIL_AT")
 with Path("calls").open("a") as stream:
     stream.write(json.dumps([name, args]) + "\n")
+if name == "git" and (args[0], failure) in [
+    ("status", "status-error"),
+    ("ls-remote", "remote-error"),
+]:
+    sys.exit(128)
 
 
 def git():
@@ -26,6 +31,12 @@ def git():
         )
     elif args[0] == "ls-remote":
         print("abc123 refs/tags/v1.0.2" if failure == "tag" else "")
+    elif args[0] == "tag":
+        print("v2.0.0-beta.1\nv1.2.9\nv1.2.8\nv1.0.1")
+    elif args[0] == "merge-base":
+        sys.exit(1 if failure == "unmerged" else 0)
+    elif args[0] == "remote":
+        print("https://github.com/example/artprep.git")
 
 
 def notary_submit():
@@ -84,6 +95,11 @@ def gh():
         if failure == "upload":
             sys.exit(1)
         Path("published").touch()
+    elif args[:2] == ["repo", "view"]:
+        print("example/artprep")
+    elif args[0] == "api":
+        if failure == "tag-race":
+            sys.exit(1)
 
 
 if name == "security":

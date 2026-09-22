@@ -30,10 +30,15 @@ def checkout(tmp_path):
     return tmp_path
 
 
-def run_release(checkout, *args, failure=""):
+def run_release(checkout, *args, failure="", ci=False):
     env = dict(os.environ)
     env.update(PATH=f"{checkout / 'bin'}:{env['PATH']}", FAIL_AT=failure)
     env.pop("ARTPREP_SIGNING_IDENTITY", None)
+    for key in ["GITHUB_ACTIONS", "GITHUB_REF", "GITHUB_SHA", "ARTPREP_NOTARY_PROFILE"]:
+        env.pop(key, None)
+    if ci:
+        env.update(GITHUB_ACTIONS="true", GITHUB_REF="refs/heads/main", GITHUB_SHA="abc123")
+        env["ARTPREP_NOTARY_PROFILE"] = "runner-profile"
     return subprocess.run(
         ["/bin/bash", "scripts/release.sh", *args],
         cwd=checkout,
@@ -80,6 +85,9 @@ def test_release_publishes_only_verified_stapled_archive(checkout):
         "archive",
         "changed",
         "upload",
+        "status-error",
+        "remote-error",
+        "tag-race",
     ],
 )
 def test_release_failure_never_publishes(checkout, failure):
@@ -106,3 +114,21 @@ def test_failed_setup_keeps_previous_profile(checkout):
     result = run_release(checkout, "setup", "bad-profile", failure="credentials")
     assert result.returncode != 0
     assert (checkout / ".artprep-notary-profile").read_text().strip() == "existing-profile"
+
+
+def test_automatic_release_increments_highest_stable_patch(checkout):
+    result = run_release(checkout, "auto", ci=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (checkout / "dist/Art-Prep-v1.2.10-macOS-arm64.zip").exists()
+    assert (checkout / "published").exists()
+
+
+def test_ci_release_allows_later_merged_main_commit(checkout):
+    result = run_release(checkout, "1.0.2", ci=True, failure="outdated")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_ci_rejects_commit_not_on_main(checkout):
+    result = run_release(checkout, "1.0.2", ci=True, failure="unmerged")
+    assert result.returncode != 0
+    assert not (checkout / "published").exists()

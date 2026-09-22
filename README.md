@@ -84,6 +84,11 @@ for Developer ID signing and Apple notarization.
 
 ## Publish a release
 
+Merges to `main` trigger [Release macOS app](.github/workflows/release.yml) on the macOS ARM64
+self-hosted runner. It selects the next patch version and runs the same release command below.
+The runner needs repository access and the Keychain/tool setup in the
+[release guide](docs/releasing.md#github-actions-runner).
+
 Once on each release Mac, connect an existing notarization Keychain profile:
 
 ```sh
@@ -103,7 +108,7 @@ Passwords stay in Keychain. [Release setup and troubleshooting](docs/releasing.m
 new credentials, certificate selection, required tools, and interrupted releases.
 
 Development checks use Swift's test runner, swift-format, uv, Ruff, ty, pytest, shellcheck,
-shfmt, and prek. Python 3.13 test dependencies are pinned with hashes:
+shfmt, actionlint, zizmor, and prek. Python 3.13 test dependencies are pinned with hashes:
 
 ```sh
 uv venv --python 3.13

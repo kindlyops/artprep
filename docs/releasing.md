@@ -9,7 +9,7 @@ release takes one command:
 
 Choose the next unused version, such as `1.0.3` for the following release. Merge your changes
 through a pull request first, switch to `main`, and pull. The command requires a clean checkout
-matching `origin/main`. It publishes to the repository selected by GitHub CLI for this checkout.
+matching `origin/main`. It publishes to the GitHub repository identified by this checkout's `origin`.
 It does not push source changes to `main`.
 
 ## One-time setup
@@ -59,6 +59,39 @@ Install the development tools and hash-locked Python test environment described 
 the real export tests. Sign in to GitHub CLI with `gh auth login`; your account needs repository
 release permission. `./scripts/release.sh --help` shows the two commands.
 
+## GitHub Actions runner
+
+The `Release macOS app` workflow runs on pushes to `main`, including PR merges. It also has a
+**Run workflow** button on GitHub for retries. It never runs unmerged PR code on the signing Mac.
+The job requests the standard labels `self-hosted`, `macOS`, and `ARM64`. Enable this repository
+for the runner's organization runner group if it is shared; that group must permit this public
+repository. GitHub serializes releases with concurrency control; pending runs may be replaced
+by newer merges while a release is running.
+
+The runner must run as the macOS user who owns the signing key and notarization profile, with
+that Keychain unlocked. Give `codesign` access to the key before running unattended jobs. The
+runner needs Xcode, GIMP 3, ImageMagick, GitHub CLI, uv, Ruff, ty, shellcheck, and shfmt installed.
+Keep its checkout outside iCloud. The workflow adds Homebrew and the usual user tool directories
+to PATH, creates Python 3.13's test environment from the hash-locked requirements, and runs checks.
+Keep the GitHub runner software current for the pinned checkout action.
+
+In **Settings → Secrets and variables → Actions → Variables**, set:
+
+| Variable | Value |
+| --- | --- |
+| `ARTPREP_NOTARY_PROFILE` | The existing notarytool profile name on the runner |
+| `ARTPREP_SIGNING_IDENTITY` | Optional certificate SHA-1, only when several Developer IDs exist |
+
+These values are identifiers, not credentials. The certificate/private key and Apple credential
+remain in the runner's Keychain. Publishing uses the job's short-lived `GITHUB_TOKEN` with
+`contents: write`; no GitHub personal token is needed or persisted by checkout.
+
+The workflow invokes `./scripts/release.sh auto`, incrementing the highest stable `vMAJOR.MINOR.PATCH`
+tag's patch number (or starting at `1.0.0` when no stable tags exist). Prerelease tags are ignored.
+The release is tied to the triggering commit, even if another PR merges while Apple processes it;
+the script verifies that the commit remains on `main`. A manually rerun successful workflow
+creates another patch release, so use the retry button for failed runs only.
+
 ## What the command does
 
 1. Checks the certificate, GitHub login, Apple credential, clean `main`, and unused release tag.
@@ -68,7 +101,8 @@ release permission. `./scripts/release.sh --help` shows the two commands.
 4. Uploads the app ZIP to Apple's notary service and requires an explicit `Accepted` result.
 5. Staples Apple's ticket to the app, makes a fresh ZIP, extracts it, and verifies the signature,
    stapled ticket, and Gatekeeper assessment on that extracted copy.
-6. Rechecks the source commit, then creates the GitHub tag and release at that exact commit,
+6. Rechecks the source commit, atomically creates a new GitHub tag at that exact commit, then
+   creates a release requiring that tag,
    uploading `Art-Prep-vVERSION-macOS-arm64.zip` and its `.sha256` checksum.
 
 The build version comes from the release command; development builds default to the nearest
@@ -91,6 +125,10 @@ command if the version has not been published. The script never replaces an exis
 - **Keychain or certificate error:** unlock your login Keychain, check certificate validity and
   its private key, or rerun `setup` with the correct profile. Keychain may ask permission for
   `codesign` to use your signing key.
+- **“A timestamp was expected but was not found”:** Apple signing requires a connection to
+  `timestamp.apple.com`. If running inside an agent's restricted environment, try the same
+  release command in Terminal. If it also fails there, check the network or retry later.
+  Do not disable timestamps to make the release proceed.
 - **Apple rejects the app:** the printed `notarization.json` contains the submission ID and
   status. Retrieve Apple's detailed report with the following command, using your saved profile:
 
@@ -106,7 +144,9 @@ command if the version has not been published. The script never replaces an exis
 - **GitHub upload fails:** inspect `gh release view vVERSION` and the repository's releases page.
   GitHub may have created a draft or tag before the connection failed. The script refuses to
   overwrite it. If nothing exists, rerun. If a draft exists, finish that draft using the verified
-  files in `dist/`; do not delete or move a published tag to force a retry.
+  files in `dist/`; if only a tag exists, create its release using those same verified files.
+  Do not delete or move a published tag to force a retry. An automatic retry chooses a new patch
+  after an existing tag, including one left by a failed upload.
 - **Source changed during the run:** commit and merge the intended changes, update local `main`,
   and rerun. A source change is never silently included under the previous commit's tag.
 
