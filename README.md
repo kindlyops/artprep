@@ -60,6 +60,12 @@ cd artprep
 Only source, tests, build scripts, and documentation are tracked. Photos, generated exports,
 app bundles, temporary caches, and the development virtual environment are excluded.
 
+## Original design
+
+The [original design memo](docs/art-prep-design-memo.html) records the approved app proposal.
+It is preserved unchanged as a self-contained HTML document. Download it and open it in a browser
+for the formatted presentation; the usage guide above describes the current app.
+
 ## Build and check
 
 The app uses system SwiftUI/AppKit, CoreGraphics, and ImageIO. It has no third-party Swift
