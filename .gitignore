@@ -8,3 +8,4 @@ dist/
 .DS_Store
 .superpowers/
 .pytest_cache/
+.artprep-notary-profile

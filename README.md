@@ -11,7 +11,8 @@ background and export editable and social-ready copies. No photo uploads or clou
 Requires macOS 14 or later and **GIMP 3** in `/Applications` or `~/Applications`.
 Download the Apple Silicon build from [GitHub Releases](https://github.com/kindlyops/artprep/releases/latest).
 Unzip the downloaded archive, move **Art Prep.app** to
-Applications, and open it. This personal build is locally signed, not Apple-notarized.
+Applications, and open it. Check the release notes for signing and notarization status;
+the older v1.0.0 and v1.0.1 downloads are locally signed, not Apple-notarized.
 Keep the app outside an iCloud-synced Documents folder: iCloud can add bundle attributes
 that invalidate local code-signing verification.
 
@@ -78,8 +79,28 @@ bash scripts/build.sh
 
 The script builds on local temporary storage, signs the app, and writes the app and ZIP to `dist/`.
 `ARTPREP_BUILD_ROOT` may override the temporary build folder. Build for the current machine's
-architecture. Distributing to other people with normal Gatekeeper trust requires your own
-Developer ID signing and notarization.
+architecture. This development command uses an ad-hoc signature. Use the release command below
+for Developer ID signing and Apple notarization.
+
+## Publish a release
+
+Once on each release Mac, connect an existing notarization Keychain profile:
+
+```sh
+./scripts/release.sh setup YOUR_KEYCHAIN_PROFILE
+```
+
+Then, from clean, merged, up-to-date `main`, use one command with the next unused version:
+
+```sh
+./scripts/release.sh 1.0.2
+```
+
+This runs checks, builds, signs with Developer ID and Hardened Runtime, notarizes, staples the
+ticket, verifies the extracted archive, and publishes a GitHub release with the ZIP and SHA-256.
+The version is written into the app and GitHub tag; no source version edit is required.
+Passwords stay in Keychain. [Release setup and troubleshooting](docs/releasing.md) covers
+new credentials, certificate selection, required tools, and interrupted releases.
 
 Development checks use Swift's test runner, swift-format, uv, Ruff, ty, pytest, shellcheck,
 shfmt, and prek. Python 3.13 test dependencies are pinned with hashes:
