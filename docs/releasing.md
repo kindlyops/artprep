@@ -59,38 +59,56 @@ Install the development tools and hash-locked Python test environment described 
 the real export tests. Sign in to GitHub CLI with `gh auth login`; your account needs repository
 release permission. `./scripts/release.sh --help` shows the two commands.
 
-## GitHub Actions runner
+## GitHub Actions releases
 
-The `Release macOS app` workflow runs on pushes to `main`, including PR merges. It also has a
-**Run workflow** button on GitHub for retries. It never runs unmerged PR code on the signing Mac.
-The job requests the standard labels `self-hosted`, `macOS`, and `ARM64`. Enable this repository
-for the runner's organization runner group if it is shared; that group must permit this public
-repository. GitHub serializes releases with concurrency control; pending runs may be replaced
-by newer merges while a release is running.
+The public `kindlyops/artprep` repository runs **Request macOS release** on GitHub-hosted Ubuntu
+when changes reach `main`. It also has a **Run workflow** button for retries. A short-lived GitHub
+App token dispatches `release.yml` on `main` in the private `kindlyops/artprep-build` repository,
+passing the exact public source commit SHA. The public repository has no self-hosted jobs.
+
+The private workflow first verifies on GitHub-hosted Ubuntu that the input is a full commit SHA
+merged into public `main`. Only then does it allocate the signing Mac. Both jobs require a manual
+dispatch event on the private repository's `main`; there are no pull-request triggers. The release
+script verifies the public checkout against `ARTPREP_SOURCE_COMMIT` and checks its ancestry again
+before publishing. `GITHUB_SHA` identifies the private workflow commit, not the public source.
+
+See [the build-trigger App setup](build-trigger-app.md) for App permissions and onboarding another
+KindlyOps project. Operational build configuration lives in the
+[private build repository](https://github.com/kindlyops/artprep-build).
+
+The runner uses the labels `self-hosted`, `macOS`, and `ARM64`. Keep its runner group restricted to
+private build repositories, with public access disabled. Where the GitHub plan supports selected
+workflows, allow only `kindlyops/artprep-build/.github/workflows/release.yml@refs/heads/main` for
+this project. Other projects sharing the group need their own explicit trusted workflow entries.
+Protect build-repository `main` and review workflow changes. Private visibility alone does not
+prevent trusted collaborators from adding unsafe jobs.
 
 The runner must run as the macOS user who owns the signing key and notarization profile, with
-that Keychain unlocked. Give `codesign` access to the key before running unattended jobs. The
-runner needs Xcode, GIMP 3, ImageMagick, GitHub CLI, uv, Ruff, ty, shellcheck, and shfmt installed.
-Keep its checkout outside iCloud. The workflow adds Homebrew and the usual user tool directories
-to PATH, creates Python 3.13's test environment from the hash-locked requirements, and runs checks.
-Keep the GitHub runner software current for the pinned checkout action.
+that Keychain unlocked. It needs Xcode, GIMP 3, ImageMagick, GitHub CLI, uv, Ruff, ty, shellcheck,
+and shfmt. Keep its checkout outside iCloud. The workflow adds the usual user tool directories to
+PATH and creates Python 3.13's test environment from hash-locked requirements.
 
-In **Settings → Secrets and variables → Actions → Variables**, set:
+Set these Actions variables in **artprep-build**:
 
 | Variable | Value |
 | --- | --- |
-| `ARTPREP_NOTARY_PROFILE` | The existing notarytool profile name on the runner |
-| `ARTPREP_SIGNING_IDENTITY` | Optional certificate SHA-1, only when several Developer IDs exist |
+| `ARTPREP_NOTARY_PROFILE` | Existing notarytool profile name on the runner |
+| `ARTPREP_SIGNING_IDENTITY` | Optional certificate SHA-1 when several Developer IDs exist |
 
-These values are identifiers, not credentials. The certificate/private key and Apple credential
-remain in the runner's Keychain. Publishing uses the job's short-lived `GITHUB_TOKEN` with
-`contents: write`; no GitHub personal token is needed or persisted by checkout.
+Apple credentials remain in the runner Keychain. The trigger App has no publication permission.
+Publishing uses the runner user's existing `gh auth login` credentials, which must have release
+permission in `kindlyops/artprep`. The private job's `GITHUB_TOKEN` cannot publish to the public
+repository; the release step unsets token overrides and uses that local login.
 
-The workflow invokes `./scripts/release.sh auto`, incrementing the highest stable `vMAJOR.MINOR.PATCH`
-tag's patch number (or starting at `1.0.0` when no stable tags exist). Prerelease tags are ignored.
-The release is tied to the triggering commit, even if another PR merges while Apple processes it;
-the script verifies that the commit remains on `main`. A manually rerun successful workflow
-creates another patch release, so use the retry button for failed runs only.
+The workflow calls `./scripts/release.sh auto`, incrementing the highest stable version tag's patch
+number. Tags and downloads remain public in `kindlyops/artprep`. GitHub serializes releases;
+pending runs may be replaced by newer merges while a release is running. Retrying a successful
+release creates another patch, so retry failed runs only.
+
+If Apple authentication works in Terminal but fails in Actions, dispatch the private workflow
+with operation **credentials**. It compares default and explicit login-Keychain lookup, reports
+tool versions and signing identities, and prints no password or credential contents. It does not
+build or publish an app. Fix the reported authentication failure before requesting a release.
 
 ## What the command does
 
