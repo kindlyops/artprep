@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Art Prep — Self-updating implementation plan</title>
+<style>
+:root { color-scheme: light; --paper:#cfd4cf; --ink:#171c1d; --muted:#4a5250; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font:19px/1.6 Georgia,serif; }
+main { max-width:1200px; margin:auto; padding:0 260px 0 48px; }
+section { min-height:90vh; padding:70px 0; scroll-margin-top:20px; border-bottom:1px solid #7f8985; }
+h1 { font-size:clamp(36px,5vw,62px); line-height:1.08; font-weight:normal; }
+h2 { font-size:34px; line-height:1.2; font-weight:normal; }
+h3 { font-size:23px; }
+.eyebrow,nav,aside { font:14px/1.5 system-ui,sans-serif; }
+.eyebrow { text-transform:uppercase; letter-spacing:.14em; }
+aside { border-left:3px solid #4a4f3f; padding:14px; background:#e6e6df; }
+a { color:#24494c; text-underline-offset:3px; }
+table { width:100%; border-collapse:collapse; font-size:16px; }
+th,td { text-align:left; vertical-align:top; padding:12px 8px; border-bottom:1px solid #7f8985; }
+th { border-top:2px solid var(--ink); }
+code { font-size:.85em; overflow-wrap:anywhere; }
+.code-key { color:#24494c; font-weight:bold; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#e6e6df; padding:20px; }
+nav { position:fixed; right:20px; top:24%; width:210px; }
+nav button { display:flex; gap:10px; width:100%; text-align:left; padding:12px;
+  margin:5px 0; background:transparent; border:1px solid transparent; color:var(--ink); cursor:pointer; }
+nav button[aria-current] { background:#e6e6df; border-color:#4a4f3f; }
+button:focus-visible,a:focus-visible { outline:3px solid #24494c; outline-offset:3px; }
+kbd { border:1px solid #4a4f3f; border-radius:3px; padding:0 5px; }
+#progress { position:fixed; top:0; height:4px; width:100%; background:#e6e6df; }
+#fill { display:block; height:100%; width:0; background:#2f5557; }
+#chapter { position:fixed; top:15px; right:20px; font:13px system-ui,sans-serif; }
+@media(max-width:850px) { main { padding:0 24px; } nav,#chapter { display:none; }
+  section { min-height:auto; padding:45px 0; } }
+@media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+@media print { nav,#progress,#chapter { display:none; } main { padding:0; max-width:none; }
+  body { background:white; font-size:12pt; } section { min-height:0; break-after:page;
+  position:relative; padding:20px 0; } section::after { content:attr(data-shortcut-key);
+  position:absolute; bottom:0; right:0; border:1px solid; padding:0 6px; } }
+</style>
+</head>
+<body>
+<div id="progress" role="progressbar" aria-label="Reading progress"
+  aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="fill"></span></div>
+<div id="chapter" aria-live="polite"></div>
+<nav aria-label="Section navigation"></nav>
+<main>
+<section id="overview" data-shortcut-key="0">
+<p class="eyebrow">Implementation plan · proposed execution</p><h1>Self-updating Art Prep</h1>
+
+<p><strong>For agentic workers:</strong> use superpowers:executing-plans for native execution,
+recommended here because the packaging and release tasks depend closely on each other.
+Alternatively use superpowers:subagent-driven-development if the user selects that method.
+Complete the unchecked steps in order; read the approved design before executing.</p>
+<p><strong>Goal:</strong> users can discover, download, verify, install, and relaunch a new Art Prep
+release from inside the application without losing work.</p>
+<p><strong>Architecture:</strong> a GUI-only Sparkle controller owns updates. The existing release
+script embeds and signs Sparkle, notarizes the app, and publishes a verified signed feed and ZIP
+through a draft GitHub release. The public workflow continues dispatching only merged source
+to the private builder.</p>
+<p><strong>Stack:</strong> Swift 6, SwiftUI/AppKit, Security, Sparkle 2.10.0, Bash, Python 3.13
+standard library for release metadata, existing pytest and GitHub CLI.</p>
+<p><strong>Spec:</strong> <a href="self-updating-design-memo.html">approved self-updating design</a>,
+commit 96f8e15. Source root: outputs/ArtPrep-Source in this task workspace.
+Private controls: sibling outputs/ArtPrep-Build.</p>
+<h3>Global constraints</h3>
+<ul><li>macOS 14 or newer; Apple Silicon release; bundle identifier local.artprep.mac.</li>
+<li>Automatic checks enabled; unattended installation disabled; no system-profile reporting.</li>
+<li>Feed: https://github.com/kindlyops/artprep/releases/latest/download/appcast.xml.</li>
+<li>Full ZIP only; require signed feed and verification before extraction.</li>
+<li>Developer ID team K5U72ZNJ2W; notarization remains in the explicit login Keychain.</li>
+<li>Dedicated Sparkle account local.artprep.mac; public key in source, private key only in Keychain.</li>
+<li>No changes to the source-photo, outline, renderer, or project formats.</li>
+<li>Feature branches and PRs; commit every development turn. Never run PR source on the Mac runner.</li>
+<li>Functions at most 100 lines and complexity 8; existing linters and warnings-as-errors remain.</li></ul>
+<h3>Review focus</h3>
+<table><tr><th>Condition</th><th>Owner and expected behavior</th></tr>
+<tr><td>A second operation starts before deferred install resumes</td><td>Task 2: recheck workspace
+lock at callback execution; invoke continuation at most once.</td></tr>
+<tr><td>User cancels quit after an update download</td><td>Task 2: outlines and normal quit warning
+remain; a later manual install can proceed.</td></tr>
+<tr><td>Download cache contains mixed or interrupted framework files</td><td>Task 1: reconstruct
+from the checksum-verified archive, never trust a stamp alone.</td></tr>
+<tr><td>Draft is incomplete, or main has advanced</td><td>Task 4: recover only the explicitly selected
+version and exact merged source; never publish mismatched assets or downgrade latest.</td></tr>
+<tr><td>Update accepted but relaunch or GIMP execution fails</td><td>Task 5: test the installed app,
+including actual local rendering, rather than declaring success after download.</td></tr></table>
+
+</section>
+<section id="framework" data-shortcut-key="1">
+<p class="eyebrow">Task 1 · verified framework</p><h1>Build an app that embeds Sparkle.</h1>
+
+<p><strong>Files:</strong> create scripts/sparkle-tools.sh and Vendor/Sparkle/Package.swift;
+modify Package.swift, scripts/build.sh, scripts/check-swift.sh, .gitignore;
+create PythonTests/test_sparkle_tools.py. Preserve assets and renderer bundling.</p>
+<p><strong>Interface:</strong> bash scripts/sparkle-tools.sh prepares the local binary package
+Vendor/Sparkle/Sparkle.xcframework and prints only the absolute tools directory on stdout;
+status and failures go to stderr. Use a versioned tool directory under
+~/Library/Caches/ArtPrep/Sparkle/2.10.0, with an explicit filesystem grant when needed.
+Tests set ARTPREP_SPARKLE_ROOT to temporary storage. Framework binaries and caches are ignored.</p>
+<p>☐ Write a subprocess test using an actual temporary ZIP and a mocked curl boundary.
+A corrupt archive must fail before extraction; a valid cached archive must rebuild a deleted or
+modified framework; interrupted downloads must never replace a verified cache.</p><pre><code>def test_corrupt_download_does_not_create_framework(tmp_path):
+    result = run_sparkle_download(tmp_path, downloaded_bytes=b&quot;not the pinned archive&quot;)
+    assert result.returncode != 0
+    assert not (tmp_path / &quot;Vendor/Sparkle/Sparkle.xcframework&quot;).exists()</code></pre><p>Define run_sparkle_download in the same test file: create a temporary checkout, copy the
+script, prepend a fake curl executable that copies supplied bytes to its -o destination,
+set ARTPREP_SPARKLE_ROOT, and return subprocess.run with captured output. Other extraction and
+checksum commands remain real. Confirm the failing test fails because the script is absent.</p>
+<p>☐ Implement pinned download, checksum verification on every use, extraction into a fresh
+staging directory, and safe replacement of owned output. Preserve symlinks and executable modes.</p><pre><code>version=2.10.0
+archive=Sparkle-for-Swift-Package-Manager.zip
+sha256=17e28312b8e18ab7cdbbe09a6fb28cc55a5479ec6c371dbc07cdecd2a14fd959
+url=&quot;https://github.com/sparkle-project/Sparkle/releases/download/$version/$archive&quot;</code></pre><p>☐ Add the local package and executable dependency, plus the runtime loader path:</p><pre><code>.package(path: &quot;Vendor/Sparkle&quot;)
+// In the ArtPrep executable target&#x27;s dependencies:
+.product(name: &quot;Sparkle&quot;, package: &quot;Sparkle&quot;)
+// In that target&#x27;s linkerSettings:
+.unsafeFlags([&quot;-Xlinker&quot;, &quot;-rpath&quot;, &quot;-Xlinker&quot;, &quot;@executable_path/../Frameworks&quot;])</code></pre><p>☐ Make build and Swift checks prepare Sparkle before package resolution. Copy the macOS
+framework into Contents/Frameworks. Determine the framework slice from the XCFramework metadata,
+not an unverified guessed path. Keep the development app ad-hoc signed without enabling Hardened
+Runtime library validation; preserve the release security settings.</p>
+<p>☐ Run the new tests, shellcheck, shfmt, Swift formatting and existing Swift tests. Build a real
+local app, use otool -L to verify linkage, launch it, and run existing GIMP integration checks.
+Inspect framework symlinks after ZIP extraction. Run relevant prek hooks and commit
+<strong>Embed checksum-pinned Sparkle framework</strong>.</p>
+
+</section>
+<section id="updater" data-shortcut-key="2">
+<p class="eyebrow">Task 2 · app behavior</p><h1>Add update controls and protect work.</h1>
+
+<p><strong>Files:</strong> create Sources/ArtPrep/Updater.swift, SigningCheck.swift,
+UpdateDeferral.swift, and Tests/ArtPrepAppTests/UpdaterTests.swift;
+modify Launcher.swift and extend WorkspaceTests.swift. Avoid unrelated Workspace refactoring.</p>
+<p><strong>Interfaces:</strong> @MainActor Updater exposes init(enabled: Bool), available: Bool,
+canCheckForUpdates: Bool, automaticChecks: Bool, checkForUpdates(), and workspace: Workspace?.
+SigningCheck.isDeveloperIDSigned(bundleURL: URL) returns Bool and checks Apple trust, Developer ID
+intermediate, and team K5U72ZNJ2W. UpdateDeferral exposes postpone(locked: Bool,
+resume: @escaping () -&gt; Void) -&gt; Bool, resumeIfReady(locked: Bool), and cancel().</p>
+<p>☐ Write failing tests for disabled updater behavior and the deferral lifecycle:</p><pre><code>@MainActor
+func testDeferralWaitsAndResumesOnlyOnce() {
+    let deferral = UpdateDeferral()
+    var calls = 0
+    XCTAssertTrue(deferral.postpone(locked: true) { calls += 1 })
+    deferral.resumeIfReady(locked: true)
+    XCTAssertEqual(calls, 0)
+    deferral.resumeIfReady(locked: false)
+    deferral.resumeIfReady(locked: false)
+    XCTAssertEqual(calls, 1)
+}</code></pre><p>Also test cancellation drops the continuation, replacing an abandoned attempt never runs
+an old continuation, and a relocked workspace delays resumption. Disabled updater tests must
+not construct SPUStandardUpdaterController. Run scripts/check-swift.sh and observe failures.</p>
+<p>☐ Implement the retained standard controller and delegate. Use Sparkle's own automatic-check
+preference, observe canCheckForUpdates for menu enablement, and expose no second preference store.
+Construct Updater only in the GUI path after the existing CLI branch.</p><pre><code>func updater(
+    _ updater: SPUUpdater,
+    shouldPostponeRelaunchForUpdate item: SUAppcastItem,
+    untilInvokingBlock installHandler: @escaping () -&gt; Void
+) -&gt; Bool {
+    deferral.postpone(locked: workspace?.locked == true, resume: installHandler)
+}</code></pre><p>☐ Observe busy and exporting changes on the main actor after their values update, then
+recheck workspace.locked before resuming. Clear pending callbacks on updater abort. Keep
+applicationShouldTerminate's lock and confirmDiscard checks because Sparkle may skip the
+postponement callback on some paths. Do not add a quittingForUpdate bypass.</p>
+<p>☐ Add Check for Updates… and Automatically Check for Updates to the application menu.
+Show an explanatory disabled-build item for unsigned copies. Add bundle feed/public-key flags
+in Task 3 before enabling signed builds. Preserve the ability to cancel a dirty-window close.</p>
+<p>☐ Run Swift tests and lint, then test menus in an actual app. Exercise busy and exporting
+termination refusal without opening modal dialogs in unit tests; verify Cancel interactively
+with a disposable saved project. Run prek and commit <strong>Add safe in-app update controls</strong>.</p>
+
+</section>
+<section id="signing" data-shortcut-key="3">
+<p class="eyebrow">Task 3 · signed update artifacts</p><h1>Verify the key, app, archive, and feed.</h1>
+
+<p><strong>Files:</strong> create scripts/release-sparkle.sh, scripts/update-metadata.py,
+assets/sparkle-public-key.txt, PythonTests/test_update_metadata.py;
+modify scripts/release.sh, scripts/build.sh, scripts/check-python.sh, pyproject.toml,
+PythonTests/test_release.py and its fixtures. Add new Python source to Ruff and ty coverage.</p>
+<p><strong>Interfaces:</strong> release-sparkle.sh is sourced by release.sh and provides
+check_update_key(), sign_nested_code(), and generate_update_feed(); it consumes existing app,
+staging, identity, version, tag, archive variables. update-metadata.py exposes
+validate_appcast(feed: Path, archive: Path, version: str) -&gt; str, returning the verified-format
+archive signature, and a CLI with these three positional arguments. Cryptographic verification
+stays in Sparkle's tool. No third-party Python package is needed.</p>
+<p>☐ Extend the release boundary fixture to reject missing/wrong/denied keys, a timed-out probe,
+nested code-sign failure, feed signing failure and invalid feed signatures. Each failure must
+exit before public release promotion. Write real XML parser tests:</p><pre><code>@pytest.mark.parametrize(&quot;field,value&quot;, [
+    (&quot;version&quot;, &quot;0.0.1&quot;),
+    (&quot;url&quot;, &quot;https://example.com/app.zip&quot;),
+    (&quot;length&quot;, &quot;0&quot;),
+    (&quot;signature&quot;, &quot;invalid-base64&quot;),
+])
+def test_invalid_feed_is_rejected(feed_archive, field, value):
+    feed, archive = feed_archive
+    replace_feed_field(feed, field, value)
+    with pytest.raises(ValueError):
+        validate_appcast(feed, archive, &quot;1.0.3&quot;)</code></pre><p>Define feed_archive as one actual temporary archive plus an XML enclosure with its real
+byte count and a valid-format test signature. replace_feed_field edits the selected XML field;
+it does not call production validation. Include empty/duplicate items, foreign namespace,
+wrong minimum OS or architecture, DTD/entity input and unexpected URLs. Limit feed size and reject
+DOCTYPE before parsing with ElementTree. Run the new tests and observe red.</p>
+<p>☐ Add an explicit one-time setup command to the release script for the dedicated account.
+Use upstream generate_keys, never security dump or a raw private-key export:</p><pre><code>&quot;$tools/generate_keys&quot; --account local.artprep.mac
+&quot;$tools/generate_keys&quot; --account local.artprep.mac -p &gt; assets/sparkle-public-key.txt</code></pre><p>Only run key creation after execution authorization. Check the public output is valid
+base64 decoding to 32 bytes. If the account exists, reuse it; fail on mismatch with the committed
+public key. Permit only Sparkle's required tools in Keychain access controls, not all applications.
+Document secure user-managed backup without writing a private key into the repository.</p>
+<p>☐ Embed SUPublicEDKey, SUFeedURL, SUEnableAutomaticChecks=true,
+SUAutomaticallyUpdate=false, SUVerifyUpdateBeforeExtraction=true,
+SURequireSignedFeed=true, and SUSendProfileInfo=false. Probe sign_update against a temporary file
+under a 60-second timeout before building; compare the account's public key to the committed key.</p>
+<p>☐ Sign each nested Mach-O/helper/XPC bundle and Sparkle.framework before signing the outer app.
+Use explicit inside-out signing, preserving Sparkle-required entitlements. Keep --deep for
+verification only. Notarize and staple the complete bundle; run the real CLI integration test
+against the signed executable and revalidate the extracted ZIP.</p>
+<p>☐ Generate a single-entry feed from the final ZIP, with no post-sign editing:</p><pre><code>&quot;$tools/generate_appcast&quot; --account local.artprep.mac --maximum-deltas 0   --download-url-prefix &quot;https://github.com/kindlyops/artprep/releases/download/$tag/&quot;   --link &quot;https://github.com/kindlyops/artprep/releases/tag/$tag&quot; &quot;$feed_dir&quot;
+&quot;$tools/sign_update&quot; --account local.artprep.mac --verify &quot;$feed_dir/appcast.xml&quot;
+signature=&quot;$(.venv/bin/python scripts/update-metadata.py   &quot;$feed_dir/appcast.xml&quot; &quot;$feed_dir/$archive&quot; &quot;$version&quot;)&quot;
+&quot;$tools/sign_update&quot; --account local.artprep.mac --verify &quot;$feed_dir/$archive&quot; &quot;$signature&quot;</code></pre><p>☐ Run Python checks, shell checks, Swift bundle tests and real signing tools. Mutate a
+signed feed and ZIP and confirm verification fails. Commit <strong>Sign and verify Sparkle update artifacts</strong>.</p>
+
+</section>
+<section id="publication" data-shortcut-key="4">
+<p class="eyebrow">Task 4 · release publication</p><h1>Publish complete updates and recover drafts.</h1>
+
+<p><strong>Files:</strong> modify scripts/release.sh and PythonTests/test_release.py;
+create scripts/release-publish.sh for draft publication/recovery if keeping these operations in
+release.sh would exceed existing complexity limits. Extend the existing release_tools.py fixture
+with separate draft, uploaded-assets, and published state.</p>
+<p><strong>Interfaces:</strong> ./scripts/release.sh auto retains its meaning.
+./scripts/release.sh resume VERSION explicitly resumes an existing draft; it does not increment
+the version, rebuild binaries, or overwrite published assets. Source commit comes from the tag's
+resolved commit, not an untrusted release-note string. Require source ancestry and the same
+private-main workflow guards for CI recovery.</p>
+<p>☐ Write failing tests separating draft creation from promotion:</p><pre><code>def test_partial_upload_preserves_previous_latest(checkout):
+    result = run_release(checkout, &quot;1.0.3&quot;, failure=&quot;upload-feed&quot;)
+    assert result.returncode != 0
+    assert (checkout / &quot;draft&quot;).exists()
+    assert not (checkout / &quot;published&quot;).exists()
+    assert (checkout / &quot;latest&quot;).read_text() == &quot;v1.0.2&quot;</code></pre><p>Extend checkout to seed latest=v1.0.2 and make fake gh maintain draft/published markers.
+Test a successful retry, a public existing release, a draft whose tag points elsewhere, missing
+assets, altered downloaded assets, non-monotonic version, and failed promotion. Assert recovery
+never invokes build or notarization. Run release tests and observe red.</p>
+<p>☐ Create the tag only for validated source, then create a draft with ZIP, checksum, and feed.
+Read asset metadata and download the draft assets through authenticated gh. Compare uploaded
+bytes with local verified artifacts before promotion. Public draft URLs may return 404 and must
+not be used as the pre-publication validation path.</p><pre><code>gh release create &quot;$tag&quot; &quot;dist/$archive&quot; &quot;dist/$archive.sha256&quot;   &quot;$feed_dir/appcast.xml&quot; --repo kindlyops/artprep --verify-tag   --target &quot;$commit&quot; --draft --title &quot;Art Prep $version&quot; --notes-file &quot;$notes&quot;
+# Only after downloaded draft assets pass checks:
+gh release edit &quot;$tag&quot; --repo kindlyops/artprep --draft=false --latest</code></pre><p>☐ For resume, require the exact intended source checkout and tag, verify that version is
+newer than current latest, and authenticate downloaded draft artifacts using the embedded public
+key, feed signature, archive signature, byte lengths, bundle identity/version, Developer ID,
+stapled ticket and Gatekeeper. Refuse incomplete drafts with a specific missing-asset message;
+never guess a local replacement. Preserve validated staging paths in the failure message so an
+operator can upload only the original artifact and retry.</p>
+<p>☐ After promotion, fetch the latest/download/appcast.xml URL anonymously with bounded retries,
+verify the signature and exact release target, then check the archive URL resolves. Report a
+post-publication check failure as already published with the exact tag; do not create another
+version as an automatic retry. Keep runtime updater errors actionable during transient outages.</p>
+<p>☐ Run release tests and mutation checks that remove asset-validation and draft gates;
+they must fail. Run relevant prek hooks and commit <strong>Publish verified update feeds with releases</strong>.</p>
+
+</section>
+<section id="rollout" data-shortcut-key="5">
+<p class="eyebrow">Task 5 · integration and rollout</p><h1>Prove installation before publishing.</h1>
+
+<p><strong>Files:</strong> update README.md, docs/releasing.md, docs/verification.md and
+assets/README.md. In the private build repository, update README.md for the Sparkle account and
+tool access. Change its workflow only if new setup or explicit resume inputs are needed; retain
+fixed repository, main/event guards, hosted ancestry checks and all existing runner restrictions.</p>
+<p>☐ Document one-time key setup, the first manual download, update preferences, read-only install
+locations, draft recovery and the existing single-command release. Correct outdated direct-runner
+and notarization statements. Record actual evidence rather than future verification claims.</p>
+<p>☐ Run native signed installation tests using two disposable builds from the same reviewed
+source, versions 1.0.2 and 1.0.3, in a temporary directory. These are local test versions, not
+Git tags or published releases. Override feed configuration only in the test bundle before
+signing; never modify a signed bundle or add a production test-feed environment override.</p>
+<p>Serve the signed test feed and ZIP on loopback with the venv's Python HTTP server. Constrain
+any App Transport Security development exception to these test bundles. Put both through the
+normal signing/notarization path so installation policy is exercised, then inspect the new app's
+version and signature after relaunch. Do not replace the user's installed Art Prep copy.</p><pre><code>.venv/bin/python -m http.server 8765 --bind 127.0.0.1 --directory &quot;$test_feed_dir&quot;
+# In a separate terminal, after the install/relaunch interaction:
+codesign --verify --deep --strict &quot;$test_install_dir/Art Prep.app&quot;
+xcrun stapler validate &quot;$test_install_dir/Art Prep.app&quot;
+spctl --assess --type execute --verbose=2 &quot;$test_install_dir/Art Prep.app&quot;</code></pre><p>☐ Exercise current-version, offline, bad-signature, canceled download, dirty-project Cancel,
+export postponement, and successful install/relaunch. Invoke the installed CLI renderer on a
+disposable project; verify output and original-file hashes. Capture evidence and UI screenshots
+without including private photos or credentials.</p>
+<p>☐ Run relevant tests and all touched-file hooks. If private workflows change, run actionlint,
+zizmor, shell checks and source-validation tests. Use an isolated worktree for the independent
+final code reviewer, address findings, rerun affected checks, and commit a coherent checkpoint.</p>
+<p>☐ Prepare PRs describing final behavior and evidence. Do not merge a documentation-only
+checkpoint that would trigger an incomplete release. Present the reviewed PRs and concrete
+release result for any remaining publication approval. Once authorized, merge private setup first
+if changed, then the source PR; monitor automatic dispatch and the notarized release. Verify the
+public feed and downloadable ZIP and record the real version in verification.md.</p>
+<h3>Execution recommendation</h3>
+<p>Native execution in this task, with one independent whole-branch review, fits the tightly
+connected build/sign/publish changes. Each task still gets a failing-test checkpoint, focused
+verification, and a commit. Subagent-driven execution is available if separate implementation
+and review contexts per task are preferred.</p>
+<h3>Sources checked</h3>
+<p>Approved memo and repository scripts; Sparkle 2.10.0 source for
+<a href="https://raw.githubusercontent.com/sparkle-project/Sparkle/2.10.0/generate_keys/main.swift">generate_keys</a>,
+<a href="https://raw.githubusercontent.com/sparkle-project/Sparkle/2.10.0/generate_appcast/main.swift">generate_appcast</a>,
+<a href="https://raw.githubusercontent.com/sparkle-project/Sparkle/2.10.0/sign_update/main.swift">sign_update</a>,
+and the <a href="https://sparkle-project.org/documentation/api-reference/Protocols/SPUUpdaterDelegate.html">updater delegate API</a>.
+Confirm binary tool help agrees with these flags before executing the release path.</p>
+
+</section>
+<section id="original-prompt" data-shortcut-key="6">
+<p class="eyebrow">Appendix</p><h1>Original prompt</h1>
+
+<pre class="prompt-original">lets set up self updating for this app so it’s easier for users to stay up to date. look at how I have self updating working for kindlyops/zag.</pre>
+<p>The user approved the design memo in the following turn:</p><pre>approved</pre>
+
+</section>
+</main>
+<script>
+const sections = [...document.querySelectorAll('main > section')];
+const rail = document.querySelector('nav');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let active = -1;
+function go(index) {
+  sections[Math.max(0, Math.min(index, sections.length - 1))]
+    .scrollIntoView({behavior: reduced ? 'auto' : 'smooth'});
+}
+const buttons = sections.map((section, index) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.setAttribute('aria-keyshortcuts', String(index));
+  const key = document.createElement('kbd');
+  key.textContent = String(index);
+  button.append(key, section.querySelector('.eyebrow').textContent);
+  button.addEventListener('click', () => go(index));
+  rail.append(button);
+  return button;
+});
+function update() {
+  let index = 0;
+  sections.forEach((section, i) => {
+    if (section.getBoundingClientRect().top < innerHeight * 0.4) index = i;
+  });
+  if (index !== active) {
+    active = index;
+    buttons.forEach((button, i) => {
+      if (i === index) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    });
+    document.querySelector('#chapter').textContent = sections[index].querySelector('.eyebrow').textContent;
+    history.replaceState(null, '', '#' + sections[index].id);
+  }
+  const height = document.documentElement.scrollHeight - innerHeight;
+  const percent = height > 0 ? Math.min(100, Math.max(0, scrollY / height * 100)) : 100;
+  document.querySelector('#fill').style.width = percent + '%';
+  document.querySelector('#progress').setAttribute('aria-valuenow', String(Math.round(percent)));
+}
+addEventListener('keydown', event => {
+  if (event.defaultPrevented || event.metaKey || event.altKey || event.ctrlKey ||
+      event.target.closest('input,textarea,select,[contenteditable]')) return;
+  if (event.target.closest('button,a') && [' ', 'Enter'].includes(event.key)) return;
+  const key = event.key.toUpperCase().replace(/[IL]/g, '1').replace(/O/g, '0');
+  let target;
+  if (/^[0-6]$/.test(key)) target = Number(key);
+  if (['ArrowRight','ArrowDown','PageDown',' '].includes(event.key)) target = active + 1;
+  if (['ArrowLeft','ArrowUp','PageUp'].includes(event.key)) target = active - 1;
+  if (event.key === 'Home') target = 0;
+  if (event.key === 'End') target = sections.length - 1;
+  if (target !== undefined) { event.preventDefault(); go(target); }
+});
+addEventListener('scroll', update, {passive:true});
+addEventListener('resize', update);
+let initial;
+try { initial = document.getElementById(decodeURIComponent(location.hash.slice(1))); }
+catch { initial = null; }
+if (initial) initial.scrollIntoView();
+update();
+</script>
+</body>
+</html>
