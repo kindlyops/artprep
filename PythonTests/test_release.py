@@ -137,6 +137,17 @@ def test_failed_setup_keeps_previous_profile(checkout):
     assert (checkout / ".artprep-notary-profile").read_text().strip() == "existing-profile"
 
 
+@pytest.mark.parametrize("args", [("setup",), ("setup", "saved-profile"), ("1.0.2",)])
+def test_uses_login_keychain_when_default_lookup_rejects_credentials(checkout, args):
+    result = run_release(checkout, *args, failure="default-keychain")
+    assert result.returncode == 0, result.stdout + result.stderr
+    if args[0] == "setup":
+        expected = "saved-profile" if len(args) > 1 else "artprep-notary"
+        assert (checkout / ".artprep-notary-profile").read_text().strip() == expected
+    else:
+        assert (checkout / "published").exists()
+
+
 def test_automatic_release_increments_highest_stable_patch(checkout):
     result = run_release(checkout, "auto", ci=True)
     assert result.returncode == 0, result.stdout + result.stderr

@@ -2,6 +2,7 @@
 set -euo pipefail
 set -E
 cd "$(dirname "$0")/.."
+keychain="$HOME/Library/Keychains/login.keychain-db"
 
 fail() {
 	printf 'Release stopped: %s\n' "$*" >&2
@@ -11,7 +12,8 @@ fail() {
 trap 'printf "Release stopped at line %s. Fix the error above before retrying.\n" "$LINENO" >&2' ERR
 
 check_credentials() {
-	xcrun notarytool history --keychain-profile "$profile" --output-format json |
+	xcrun notarytool history --keychain-profile "$profile" --keychain "$keychain" \
+		--output-format json |
 		plutil -extract history xml1 -o /dev/null - ||
 		fail "Cannot use Keychain profile '$profile'. Run ./scripts/release.sh setup PROFILE."
 }
@@ -21,7 +23,7 @@ setup() {
 	[[ -n "$profile" && "$profile" != *$'\n'* ]] || fail "Use a nonempty profile name."
 	if [[ $# == 0 ]]; then
 		printf 'Apple will prompt securely. Use an app-specific password, not your login password.\n'
-		xcrun notarytool store-credentials "$profile"
+		xcrun notarytool store-credentials "$profile" --keychain "$keychain"
 	fi
 	check_credentials
 	printf '%s\n' "$profile" >.artprep-notary-profile
@@ -111,7 +113,7 @@ notarize() {
 	ditto -c -k --keepParent --norsrc --noextattr "$app" "$staging/submission.zip"
 	printf 'Notarization result will be saved in %s\n' "$response"
 	if ! xcrun notarytool submit "$staging/submission.zip" --keychain-profile "$profile" \
-		--wait --timeout 30m --output-format json >"$response"; then
+		--keychain "$keychain" --wait --timeout 30m --output-format json >"$response"; then
 		fail "Notarization did not finish successfully. See $response and docs/releasing.md."
 	fi
 	status="$(plutil -extract status raw -o - "$response")"

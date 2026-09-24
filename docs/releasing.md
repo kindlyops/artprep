@@ -43,6 +43,10 @@ This validates the profile against Apple and saves only its name to `.artprep-no
 which Git ignores. It never reads the password into the script. This Mac already has a working
 profile; it does not need another app-specific password.
 
+Setup, credential checks, and submission explicitly use
+`$HOME/Library/Keychains/login.keychain-db`. On this runner, default Keychain lookup can return
+an Apple 401 even when the same profile authenticates successfully in the login Keychain.
+
 On a new Mac without a notarization profile, run:
 
 ```sh
@@ -139,6 +143,8 @@ shasum -a 256 -c Art-Prep-v1.0.2-macOS-arm64.zip.sha256
 
 The command exits without continuing to later steps. Fix the reported issue and rerun the same
 command if the version has not been published. The script never replaces an existing release.
+For the manual `notarytool` commands below, also pass
+`--keychain "$HOME/Library/Keychains/login.keychain-db"` to use the same Keychain as the script.
 
 - **Keychain or certificate error:** unlock your login Keychain, check certificate validity and
   its private key, or rerun `setup` with the correct profile. Keychain may ask permission for
