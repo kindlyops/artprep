@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Art Prep — Self-updating design</title>
+<style>
+:root { color-scheme: light; --paper:#cfd4cf; --ink:#171c1d; --muted:#4a5250; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font:19px/1.6 Georgia,serif; }
+main { max-width:1200px; margin:auto; padding:0 260px 0 48px; }
+section { min-height:90vh; padding:70px 0; scroll-margin-top:20px; border-bottom:1px solid #7f8985; }
+h1 { font-size:clamp(36px,5vw,62px); line-height:1.08; font-weight:normal; }
+h2 { font-size:34px; line-height:1.2; font-weight:normal; }
+h3 { font-size:23px; }
+.eyebrow,nav,aside { font:14px/1.5 system-ui,sans-serif; }
+.eyebrow { text-transform:uppercase; letter-spacing:.14em; }
+aside { border-left:3px solid #4a4f3f; padding:14px; background:#e6e6df; }
+a { color:#24494c; text-underline-offset:3px; }
+table { width:100%; border-collapse:collapse; font-size:16px; }
+th,td { text-align:left; vertical-align:top; padding:12px 8px; border-bottom:1px solid #7f8985; }
+th { border-top:2px solid var(--ink); }
+code { font-size:.85em; overflow-wrap:anywhere; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#e6e6df; padding:20px; }
+nav { position:fixed; right:20px; top:24%; width:210px; }
+nav button { display:flex; gap:10px; width:100%; text-align:left; padding:12px;
+  margin:5px 0; background:transparent; border:1px solid transparent; color:var(--ink); cursor:pointer; }
+nav button[aria-current] { background:#e6e6df; border-color:#4a4f3f; }
+button:focus-visible,a:focus-visible { outline:3px solid #24494c; outline-offset:3px; }
+kbd { border:1px solid #4a4f3f; border-radius:3px; padding:0 5px; }
+#progress { position:fixed; top:0; height:4px; width:100%; background:#e6e6df; }
+#fill { display:block; height:100%; width:0; background:#2f5557; }
+#chapter { position:fixed; top:15px; right:20px; font:13px system-ui,sans-serif; }
+@media(max-width:850px) { main { padding:0 24px; } nav,#chapter { display:none; }
+  section { min-height:auto; padding:45px 0; } }
+@media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+@media print { nav,#progress,#chapter { display:none; } main { padding:0; max-width:none; }
+  body { background:white; font-size:12pt; } section { min-height:0; break-after:page;
+  position:relative; padding:20px 0; } section::after { content:attr(data-shortcut-key);
+  position:absolute; bottom:0; right:0; border:1px solid; padding:0 6px; } }
+</style>
+</head>
+<body>
+<div id="progress" role="progressbar" aria-label="Reading progress"
+  aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="fill"></span></div>
+<div id="chapter" aria-live="polite"></div>
+<nav aria-label="Section navigation"></nav>
+<main>
+<section id="decision" data-shortcut-key="0">
+<header><p class="eyebrow">Decision · proposed · 24 September 2026</p>
+<h1>Keep Art Prep<br>up to date.</h1></header>
+<p>Use Sparkle, as Zag does, to check for releases automatically and let users choose when
+to install. Preserve unsaved outlines and active exports. Continue producing notarized ZIPs
+through the private Mac builder, with one release command.</p>
+<aside>This is a proposal, not implemented behavior. The first updater-enabled release
+requires a manual download; v1.0.2 cannot acquire an updater by itself.</aside>
+<table><thead><tr><th>Approach</th><th>Tradeoff</th></tr></thead><tbody>
+<tr><td><strong>Sparkle + release asset feed (recommended)</strong></td>
+<td>Use existing public releases and private builder. Publish appcast.xml together with the ZIP.</td></tr>
+<tr><td>Sparkle + GitHub Pages, as in Zag</td><td>Independent feed hosting, but adds Pages setup,
+a publishing branch, and a separate deployment to maintain.</td></tr>
+<tr><td>Custom GitHub release checker</td><td>A download link is simple, but replacing and relaunching
+the app safely would duplicate Sparkle’s installation and verification machinery.</td></tr>
+</tbody></table>
+</section>
+<section id="experience" data-shortcut-key="1">
+<p class="eyebrow">Experience</p><h2>Check automatically. Install deliberately.</h2>
+<p>Add <strong>Check for Updates…</strong> and an <strong>Automatically Check for Updates</strong>
+toggle to the app menu. Automatic checks start enabled, matching Zag; unattended installation
+starts disabled. Sparkle owns scheduling, preference persistence, download progress, and errors.</p>
+<p>Only an Art Prep bundle with a valid Kindly Ops Developer ID signature starts the updater.
+Development builds explain that updates are unavailable. CLI rendering and automated tests do
+not initialize Sparkle or contact the feed. Photos and project files remain local; GitHub receives
+ordinary update requests, not artwork. Do not enable Sparkle system-profile reporting.</p>
+<p>An installation must not interrupt photo loading, refinement, or export. Defer the install
+while the workspace is locked and resume only through a documented Sparkle delegate path.
+Keep the existing unsaved-outline confirmation on termination: Cancel leaves the app and
+project intact. Do not copy Zag’s quit-prompt bypass, which serves its background gateway.</p>
+<p>Users running from a read-only location or an uninstalled download must receive an actionable
+message through the manual check. Keep the existing bundle identifier
+<code>local.artprep.mac</code> and app name to preserve identity across releases.</p>
+</section>
+<section id="release" data-shortcut-key="2">
+<p class="eyebrow">Release flow</p><h2>One signed release, one update feed.</h2>
+<p>Embed a checksum-pinned Sparkle framework and tools. Zag currently vendors 2.9.1 because
+SwiftPM’s artifact downloader hung on this Mac. Use the same verified-download approach with
+the current stable <strong>2.10.0</strong>, confirmed against the upstream release API.</p>
+<p>Configure the feed as
+<code>https://github.com/kindlyops/artprep/releases/latest/download/appcast.xml</code>.
+Keep the current monotonically increasing semantic version in both bundle version fields.</p>
+<ol>
+<li>Validate merged source and credentials on the existing trusted release path.</li>
+<li>Probe a dedicated Art Prep Ed25519 Keychain account with a bounded signing operation.
+Verify it matches the public key embedded in the app. Never export the private key into CI.</li>
+<li>Build and embed Sparkle, preserving framework symlinks and loader paths. Sign nested helpers
+and framework code inside out, then sign the app with Hardened Runtime and timestamp.</li>
+<li>Run app checks, notarize, staple, and verify the ZIP after extraction.</li>
+<li>Run Sparkle’s generate_appcast on the final archive. Require archive verification before
+extraction and signed feeds. Include macOS 14 and arm64 requirements; validate the generated XML,
+signature, version, byte length, and fixed repository download URL.</li>
+<li>Create a draft release with the ZIP, checksum, and appcast. Verify uploaded assets before
+publishing it as latest. Confirm that the public feed and archive resolve afterward.</li>
+</ol>
+<aside>The feed advertises the latest full ZIP only. Delta updates are not needed for this initial
+implementation. Failed uploads leave a draft and preserve the previous latest release.</aside>
+<p>Keep <code>./scripts/release.sh auto</code> as the normal command. Add an explicit recovery path
+for finishing publication of an existing draft after verifying its source and assets; do not
+silently rebuild or overwrite a published version. Never change signed XML after signing it.</p>
+<p>Keep runner selection, main-ancestry validation, and the GitHub App dispatch boundary in
+<code>artprep-build</code>. No new PR/fork triggers or public self-hosted jobs are needed.</p>
+</section>
+<section id="verification" data-shortcut-key="3">
+<p class="eyebrow">Validation</p><h2>Prove the update, including its refusal paths.</h2>
+<table><thead><tr><th>Case</th><th>Required result</th></tr></thead><tbody>
+<tr><td>Unsigned app, CLI, unit tests</td><td>No updater network activity.</td></tr>
+<tr><td>Manual check, no update, offline</td><td>Correct Sparkle UI; editing remains usable.</td></tr>
+<tr><td>Busy workspace; unsaved outlines; cancel</td><td>No lost work or interrupted export;
+normal quit protection remains effective after a failed update.</td></tr>
+<tr><td>Missing key, wrong key, locked Keychain</td><td>Bounded preflight failure before notarization.</td></tr>
+<tr><td>Altered archive or feed</td><td>Signature verification rejects the update.</td></tr>
+<tr><td>Malformed metadata, wrong version/URL/length</td><td>No public release is promoted.</td></tr>
+<tr><td>Partial upload or publication failure</td><td>Previous feed remains available;
+retry uses verified draft assets.</td></tr>
+<tr><td>Real signed older → newer app</td><td>Download, install, relaunch, correct version,
+and working GIMP export. Use isolated signed test builds and a local test feed first.</td></tr>
+</tbody></table>
+<p>Extend Swift behavior tests and the existing Python release-boundary tests; use mutation checks
+on publication and signature gates. Run Swift formatting, shellcheck, shfmt, Ruff, ty, and relevant
+prek hooks. A mock release test alone does not prove Sparkle can install the app.</p>
+<p>Before public rollout, confirm a stable Keychain tool path and backup the new signing key
+through an explicit secure user operation. ZIP updates with verification before extraction
+make loss of the Ed25519 key consequential; follow Sparkle’s supported rotation procedure.</p>
+</section>
+<section id="evidence" data-shortcut-key="4">
+<p class="eyebrow">Evidence &amp; limits</p><h2>Grounded in Zag’s implementation.</h2>
+<p>Reviewed Zag at <code>f696e0e40af988a780b7796a7fe96459cc4934e4</code> and Art Prep at
+<code>d752947df008891165ab28152e6c726b845762e1</code>.</p>
+<ul>
+<li><a href="https://github.com/kindlyops/zag/blob/f696e0e40af988a780b7796a7fe96459cc4934e4/apps/menubar/Zag/Services/Updater.swift">Zag updater</a>:
+standard controller, automatic-check preference, signed-build gate, install lifecycle.</li>
+<li><a href="https://github.com/kindlyops/zag/blob/f696e0e40af988a780b7796a7fe96459cc4934e4/apps/menubar/scripts/release-app.sh">Zag release script</a>:
+Keychain preflight, notarization, appcast generation. Its workflow publishes to zag-releases
+and serves the feed through Pages.</li>
+<li><a href="https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0">Sparkle 2.10.0</a>:
+SwiftPM archive SHA-256
+<code>17e28312b8e18ab7cdbbe09a6fb28cc55a5479ec6c371dbc07cdecd2a14fd959</code>.</li>
+<li><a href="https://sparkle-project.org/documentation/">Sparkle setup</a> and
+<a href="https://sparkle-project.org/documentation/publishing/">publishing guide</a>:
+embedding, signature verification, Keychain keys, feed generation, versioning, and real-update tests.</li>
+</ul>
+<p>Art Prep’s Pages lookup returned 404, so no existing Pages feed was confirmed. Dedicated
+Art Prep key setup, binary embedding, GitHub release-asset feed redirects, and the actual
+Sparkle install/defer behavior remain implementation checks. No credentials were changed.</p>
+<p>Adjacent documentation drift: README still describes direct self-hosted source builds;
+verification.md still predates successful notarization. Correct these release-related statements
+alongside the updater documentation.</p>
+</section>
+<section id="original-prompt" data-shortcut-key="5">
+<p class="eyebrow">Appendix</p><h2>Original prompt</h2>
+<pre class="prompt-original">lets set up self updating for this app so it’s easier for users to stay up to date. look at how I have self updating working for kindlyops/zag.</pre>
+</section>
+</main>
+<script>
+const sections = [...document.querySelectorAll('main > section')];
+const rail = document.querySelector('nav');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let active = -1;
+function go(index) {
+  sections[Math.max(0, Math.min(index, sections.length - 1))]
+    .scrollIntoView({behavior: reduced ? 'auto' : 'smooth'});
+}
+const buttons = sections.map((section, index) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.setAttribute('aria-keyshortcuts', String(index));
+  const key = document.createElement('kbd');
+  key.textContent = String(index);
+  button.append(key, section.querySelector('.eyebrow').textContent);
+  button.addEventListener('click', () => go(index));
+  rail.append(button);
+  return button;
+});
+function update() {
+  let index = 0;
+  sections.forEach((section, i) => {
+    if (section.getBoundingClientRect().top < innerHeight * 0.4) index = i;
+  });
+  if (index !== active) {
+    active = index;
+    buttons.forEach((button, i) => {
+      if (i === index) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    });
+    document.querySelector('#chapter').textContent = sections[index].querySelector('.eyebrow').textContent;
+    history.replaceState(null, '', '#' + sections[index].id);
+  }
+  const height = document.documentElement.scrollHeight - innerHeight;
+  const percent = height > 0 ? Math.min(100, Math.max(0, scrollY / height * 100)) : 100;
+  document.querySelector('#fill').style.width = percent + '%';
+  document.querySelector('#progress').setAttribute('aria-valuenow', String(Math.round(percent)));
+}
+addEventListener('keydown', event => {
+  if (event.defaultPrevented || event.metaKey || event.altKey || event.ctrlKey ||
+      event.target.closest('input,textarea,select,[contenteditable]')) return;
+  if (event.target.closest('button,a') && [' ', 'Enter'].includes(event.key)) return;
+  const key = event.key.toUpperCase().replace(/[IL]/g, '1').replace(/O/g, '0');
+  let target;
+  if (/^[0-5]$/.test(key)) target = Number(key);
+  if (['ArrowRight','ArrowDown','PageDown',' '].includes(event.key)) target = active + 1;
+  if (['ArrowLeft','ArrowUp','PageUp'].includes(event.key)) target = active - 1;
+  if (event.key === 'Home') target = 0;
+  if (event.key === 'End') target = sections.length - 1;
+  if (target !== undefined) { event.preventDefault(); go(target); }
+});
+addEventListener('scroll', update, {passive:true});
+addEventListener('resize', update);
+let initial;
+try { initial = document.getElementById(decodeURIComponent(location.hash.slice(1))); }
+catch { initial = null; }
+if (initial) initial.scrollIntoView();
+update();
+</script>
+</body>
+</html>
