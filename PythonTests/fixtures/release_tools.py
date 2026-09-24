@@ -15,6 +15,11 @@ if name == "git" and (args[0], failure) in [
     ("ls-remote", "remote-error"),
 ]:
     sys.exit(128)
+if name == "xcrun" and args[0] == "notarytool" and failure == "default-keychain":
+    keychain = str(Path.home() / "Library/Keychains/login.keychain-db")
+    if "--keychain" not in args or args[args.index("--keychain") + 1] != keychain:
+        print("Default Keychain lookup rejected credentials", file=sys.stderr)
+        sys.exit(1)
 
 
 def git():
