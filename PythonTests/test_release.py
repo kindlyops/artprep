@@ -34,10 +34,31 @@ def run_release(checkout, *args, failure="", ci=False):
     env = dict(os.environ)
     env.update(PATH=f"{checkout / 'bin'}:{env['PATH']}", FAIL_AT=failure)
     env.pop("ARTPREP_SIGNING_IDENTITY", None)
-    for key in ["GITHUB_ACTIONS", "GITHUB_REF", "GITHUB_SHA", "ARTPREP_NOTARY_PROFILE"]:
+    for key in [
+        "GITHUB_ACTIONS",
+        "GITHUB_REF",
+        "GITHUB_SHA",
+        "GITHUB_REPOSITORY",
+        "GITHUB_EVENT_NAME",
+        "ARTPREP_NOTARY_PROFILE",
+        "ARTPREP_SOURCE_COMMIT",
+    ]:
         env.pop(key, None)
     if ci:
-        env.update(GITHUB_ACTIONS="true", GITHUB_REF="refs/heads/main", GITHUB_SHA="abc123")
+        env.update(
+            GITHUB_ACTIONS="true",
+            GITHUB_REF="refs/heads/main",
+            GITHUB_SHA="builder456",
+            GITHUB_REPOSITORY="kindlyops/artprep-build",
+            GITHUB_EVENT_NAME="workflow_dispatch",
+            ARTPREP_SOURCE_COMMIT="abc123",
+        )
+        if failure == "pr-event":
+            env["GITHUB_EVENT_NAME"] = "pull_request_target"
+        if failure == "public-builder":
+            env["GITHUB_REPOSITORY"] = "kindlyops/artprep"
+        if failure == "source-mismatch":
+            env["ARTPREP_SOURCE_COMMIT"] = "different-source"
         env["ARTPREP_NOTARY_PROFILE"] = "runner-profile"
     return subprocess.run(
         ["/bin/bash", "scripts/release.sh", *args],
@@ -130,5 +151,12 @@ def test_ci_release_allows_later_merged_main_commit(checkout):
 
 def test_ci_rejects_commit_not_on_main(checkout):
     result = run_release(checkout, "1.0.2", ci=True, failure="unmerged")
+    assert result.returncode != 0
+    assert not (checkout / "published").exists()
+
+
+@pytest.mark.parametrize("failure", ["pr-event", "public-builder", "source-mismatch"])
+def test_ci_requires_private_main_builder_and_pinned_source(checkout, failure):
+    result = run_release(checkout, "1.0.2", ci=True, failure=failure)
     assert result.returncode != 0
     assert not (checkout / "published").exists()

@@ -45,8 +45,11 @@ check_source() {
 	[[ -z "$status" ]] || fail "Commit your changes before releasing."
 	[[ "$head" == "$commit" ]] || fail "Source changed during the release. Start again."
 	if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
-		[[ "${GITHUB_REF:-}" == refs/heads/main && "${GITHUB_SHA:-}" == "$commit" ]] ||
-			fail "CI releases must use the main event's exact commit."
+		[[ "${GITHUB_REPOSITORY:-}" == kindlyops/artprep-build &&
+			"${GITHUB_REF:-}" == refs/heads/main &&
+			"${GITHUB_EVENT_NAME:-}" == workflow_dispatch &&
+			"${ARTPREP_SOURCE_COMMIT:-}" == "$commit" ]] ||
+			fail "CI releases require the private main builder and its validated source commit."
 		git merge-base --is-ancestor "$commit" origin/main || fail "Commit is not merged to main."
 	else
 		branch="$(git branch --show-current)"
