@@ -6,6 +6,12 @@ source SHA on a hosted runner before any source code runs on the self-hosted sig
 
 ## Registration
 
+The KindlyOps App is [KindlyOps Build Trigger](https://github.com/apps/kindlyops-build-trigger).
+Its App ID is `5060909` and its Client ID is `Iv23liRAIl0BmIWjxpim`; these identifiers are public.
+Organization owners can manage it in
+[App settings](https://github.com/organizations/kindlyops/settings/apps/kindlyops-build-trigger).
+Reuse this registration for builders in the same trust boundary. For a separate registration:
+
 Create **KindlyOps Build Trigger** in KindlyOps → Settings → Developer settings → GitHub Apps.
 Use `https://github.com/kindlyops` as its homepage, disable webhooks, leave OAuth callbacks and
 user authorization off, and allow installation **only on this account**.
@@ -27,6 +33,18 @@ Create a GitHub Actions environment named **build-trigger**, restricted to deplo
 **KINDLYOPS_BUILD_APP_PRIVATE_KEY**. Set the repository variable **KINDLYOPS_BUILD_APP_CLIENT_ID**
 to the App's Client ID. This keeps the key out of workflows running on other branches. The release
 workflow uses that environment and never checks out or executes source code.
+
+With the GitHub CLI signed in, store the downloaded PEM without printing its contents:
+
+```bash
+gh secret set KINDLYOPS_BUILD_APP_PRIVATE_KEY \
+  --repo kindlyops/artprep \
+  --env build-trigger \
+  < "/path/to/downloaded-private-key.pem"
+```
+
+Replace the placeholder path with the downloaded file's path. Verify that the secret exists with
+`gh secret list --repo kindlyops/artprep --env build-trigger`; GitHub does not return its contents.
 
 The workflow requests only Actions write for `artprep-build` and dispatches the builder's
 `release.yml` on `main` with `source_sha` set to the public event SHA. The App need not be installed
