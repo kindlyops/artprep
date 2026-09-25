@@ -9,6 +9,11 @@ fail() {
 	exit 1
 }
 
+# shellcheck source=scripts/release-sparkle.sh
+source scripts/release-sparkle.sh
+# shellcheck source=scripts/release-publish.sh
+source scripts/release-publish.sh
+
 trap 'printf "Release stopped at line %s. Fix the error above before retrying.\n" "$LINENO" >&2' ERR
 
 check_credentials() {
@@ -53,6 +58,8 @@ check_source() {
 			"${ARTPREP_SOURCE_COMMIT:-}" == "$commit" ]] ||
 			fail "CI releases require the private main builder and its validated source commit."
 		git merge-base --is-ancestor "$commit" origin/main || fail "Commit is not merged to main."
+	elif [[ "${release_mode:-release}" == resume ]]; then
+		git merge-base --is-ancestor "$commit" origin/main || fail "Tag is not merged to main."
 	else
 		branch="$(git branch --show-current)"
 		upstream="$(git rev-parse origin/main)"
@@ -96,17 +103,21 @@ preflight() {
 	[[ -z "$remote_tag" ]] || fail "Tag $tag already exists."
 	remote_url="$(git remote get-url origin)"
 	repository="$(gh repo view "$remote_url" --json nameWithOwner --jq .nameWithOwner)"
+	[[ "$repository" == kindlyops/artprep ]] || fail "Release remote must be kindlyops/artprep."
 	releases="$(gh release list --repo "$repository" --limit 100 --json tagName --jq '.[].tagName')"
 	if grep -Fxq "$tag" <<<"$releases"; then
 		fail "Release $tag exists (possibly a draft). Inspect it on GitHub before retrying."
 	fi
 	check_credentials
+	tools="$(bash scripts/sparkle-tools.sh)"
+	check_update_key
 }
 
 notarize() {
 	local response status
 	response="$staging/notarization.json"
 	printf 'Signing with Developer ID and submitting to Apple…\n'
+	sign_nested_code
 	codesign --force --sign "$identity" --options runtime --timestamp "$app"
 	codesign --verify --deep --strict "$app"
 	ARTPREP_APP="$app/Contents/MacOS/ArtPrep" bash scripts/check-python.sh
@@ -150,12 +161,25 @@ Source commit: $commit. The accompanying SHA-256 file verifies the download.
 NOTES
 	gh api --method POST "repos/$repository/git/refs" \
 		-f "ref=refs/tags/$tag" -f "sha=$commit" >/dev/null
-	gh release create "$tag" "dist/$archive" "dist/$archive.sha256" --repo "$repository" \
+	gh release create "$tag" "dist/$archive" "dist/$archive.sha256" "$feed_dir/appcast.xml" --repo "$repository" \
 		--verify-tag --target "$commit" --title "Art Prep $version" \
-		--notes-file "$staging/release-notes.md"
+		--draft --notes-file "$staging/release-notes.md"
+	promote_draft
 	printf 'Published %s. Local download: %s/dist/%s\n' "$tag" "$PWD" "$archive"
 }
 
+if [[ "${1:-}" == resume ]]; then
+	[[ $# == 2 && "$2" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] ||
+		fail "Usage: ./scripts/release.sh resume VERSION"
+	release_mode=resume
+	resume_release "$2"
+	exit 0
+fi
+if [[ "${1:-}" == setup-updates ]]; then
+	[[ $# == 1 ]] || fail "Usage: ./scripts/release.sh setup-updates"
+	setup_updates
+	exit 0
+fi
 if [[ "${1:-}" == setup ]]; then
 	[[ $# -le 2 ]] || fail "Usage: ./scripts/release.sh setup [EXISTING_KEYCHAIN_PROFILE]"
 	shift
@@ -163,6 +187,8 @@ if [[ "${1:-}" == setup ]]; then
 	exit 0
 fi
 if [[ "${1:-}" == --help || $# == 0 ]]; then
+	printf 'Update signing setup: ./scripts/release.sh setup-updates\n'
+	printf 'Finish an existing draft: ./scripts/release.sh resume VERSION\n'
 	printf 'One-time setup: ./scripts/release.sh setup [EXISTING_KEYCHAIN_PROFILE]\n'
 	printf 'Build, notarize, and publish: ./scripts/release.sh 1.0.2\n'
 	printf 'Choose the next patch automatically: ./scripts/release.sh auto\n'
@@ -182,4 +208,5 @@ IFS= read -r app <dist/app-path.txt
 staging="$(dirname "$app")"
 notarize
 package_release
+generate_update_feed
 publish

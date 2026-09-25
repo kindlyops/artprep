@@ -4,7 +4,7 @@
 
 A local Mac app for preparing photographs of paintings with wooden or irregular frames.
 You mark the artwork boundary; Art Prep uses your installed GIMP to replace the surrounding
-background and export editable and social-ready copies. No photo uploads or cloud services.
+background and export editable and social-ready copies. Your photos stay on this Mac.
 
 ## Use the app
 
@@ -47,6 +47,18 @@ Use **Open Project** to resume. Projects reference the original photo paths; kee
 in place. Moving or renaming a source requires adding it again. The hidden XCF reference is
 cropped to the output canvas, so retain the original photo as your master.
 
+## App updates
+
+Developer ID releases include **Check for Updates…** in the Art Prep menu and an
+**Automatically Check for Updates** toggle. Checks start enabled; you choose when to install.
+Updates wait for active operations, and the usual unsaved-outline warning still protects your work.
+GitHub serves the signed update feed and ZIP; photos and projects are never uploaded.
+Unsigned development builds do not check for updates.
+
+Versions through v1.0.2 need one manual download of the first updater-enabled release.
+Move the app into Applications before using updates; an app running from a read-only location
+cannot replace itself. GIMP updates remain separate.
+
 ## Git history
 
 The source and progress history are hosted at [kindlyops/artprep](https://github.com/kindlyops/artprep).
@@ -69,8 +81,9 @@ for the formatted presentation; the usage guide above describes the current app.
 
 ## Build and check
 
-The app uses system SwiftUI/AppKit, CoreGraphics, and ImageIO. It has no third-party Swift
-packages. Python renderer code runs inside GIMP's own interpreter; users need no Python install.
+The app uses system SwiftUI/AppKit, CoreGraphics, ImageIO, and Sparkle for signed updates.
+The build fetches the exact Sparkle release pinned in `scripts/sparkle-version.env` and verifies
+its SHA-256 before preparing the local binary package. Its combined license notices are included in the app’s Resources folder. Python renderer code runs inside GIMP's own interpreter; users need no Python install.
 Build with a Swift 6 toolchain and macOS SDK:
 
 ```sh
@@ -84,8 +97,9 @@ for Developer ID signing and Apple notarization.
 
 ## Publish a release
 
-Merges to `main` trigger [Release macOS app](.github/workflows/release.yml) on the macOS ARM64
-self-hosted runner. It selects the next patch version and runs the same release command below.
+Merges to `main` trigger [Request macOS release](.github/workflows/release.yml) on a hosted runner.
+It dispatches the private `kindlyops/artprep-build` workflow, which validates the merged commit
+before allocating the macOS ARM64 signing runner. It selects the next patch version.
 The runner needs repository access and the Keychain/tool setup in the
 [release guide](docs/releasing.md#github-actions-runner).
 
@@ -102,7 +116,8 @@ Then, from clean, merged, up-to-date `main`, use one command with the next unuse
 ```
 
 This runs checks, builds, signs with Developer ID and Hardened Runtime, notarizes, staples the
-ticket, verifies the extracted archive, and publishes a GitHub release with the ZIP and SHA-256.
+ticket, verifies the extracted archive, and publishes a GitHub release with the ZIP, SHA-256,
+and signed Sparkle feed. Uploaded draft assets are verified before the release becomes latest.
 The version is written into the app and GitHub tag; no source version edit is required.
 Passwords stay in Keychain. [Release setup and troubleshooting](docs/releasing.md) covers
 new credentials, certificate selection, required tools, and interrupted releases.

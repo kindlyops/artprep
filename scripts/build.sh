@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+sparkle_tools="$(bash scripts/sparkle-tools.sh)"
 version="${1:-$(git describe --tags --abbrev=0 --match 'v[0-9]*')}"
 version="${version#v}"
 if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
@@ -18,6 +19,14 @@ binary="$(swift build -c release --show-bin-path --scratch-path "$cache/build" \
 staging="$(mktemp -d "$cache/bundle.XXXXXX")"
 app="$staging/Art Prep.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/renderer" dist
+mkdir -p "$app/Contents/Frameworks"
+framework="Vendor/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+[[ -d "$framework" ]] || {
+	echo 'Pinned Sparkle macOS framework missing.' >&2
+	exit 1
+}
+cp -RP "$framework" "$app/Contents/Frameworks/"
+cp "$sparkle_tools/../LICENSE" "$app/Contents/Resources/Sparkle-LICENSE.txt"
 cp "$binary" "$app/Contents/MacOS/ArtPrep"
 cp renderer/job.py renderer/render.py "$app/Contents/Resources/renderer/"
 iconset="$staging/AppIcon.iconset"
@@ -31,6 +40,15 @@ for size in 16 32 128 256 512; do
 done
 swift -warnings-as-errors -module-cache-path "$cache/icon-module-cache" \
 	scripts/package-icon.swift "$iconset" "$app/Contents/Resources/AppIcon.icns"
+public_key=""
+if [[ -f assets/sparkle-public-key.txt ]]; then
+	public_key="$(cat assets/sparkle-public-key.txt)"
+	[[ "$public_key" =~ ^[A-Za-z0-9+/]{43}=$ ]] || {
+		echo 'Invalid Sparkle public key.' >&2
+		exit 1
+	}
+fi
+source_commit="$(git rev-parse HEAD)"
 cat >"$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -45,6 +63,14 @@ cat >"$app/Contents/Info.plist" <<PLIST
 <key>CFBundleShortVersionString</key><string>$version</string>
 <key>CFBundleVersion</key><string>$version</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>ArtPrepSourceCommit</key><string>$source_commit</string>
+<key>SUFeedURL</key><string>https://github.com/kindlyops/artprep/releases/latest/download/appcast.xml</string>
+<key>SUPublicEDKey</key><string>$public_key</string>
+<key>SUEnableAutomaticChecks</key><true/>
+<key>SUAutomaticallyUpdate</key><false/>
+<key>SUVerifyUpdateBeforeExtraction</key><true/>
+<key>SURequireSignedFeed</key><true/>
+<key>SUSendProfileInfo</key><false/>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST

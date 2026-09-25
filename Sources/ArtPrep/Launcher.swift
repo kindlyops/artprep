@@ -50,6 +50,7 @@ enum Launcher {
 
 struct ArtPrepApp: App {
     @StateObject private var workspace = Workspace()
+    @StateObject private var updater = Updater()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
@@ -59,11 +60,24 @@ struct ArtPrepApp: App {
                 .frame(minWidth: 1000, minHeight: 650)
                 .onAppear {
                     delegate.workspace = workspace
+                    updater.workspace = workspace
+                    updater.start()
                     NSApp.activate(ignoringOtherApps: true)
                 }
+                .onChange(of: workspace.locked) { _, _ in updater.resumeIfReady() }
+                .onChange(of: updater.startError) { _, error in workspace.error = error }
         }
         .defaultSize(width: 1280, height: 820)
         .commands {
+            CommandGroup(after: .appInfo) {
+                if updater.available {
+                    Button("Check for Updates…", action: updater.checkForUpdates)
+                        .disabled(!updater.canCheckForUpdates || workspace.locked)
+                    Toggle("Automatically Check for Updates", isOn: $updater.automaticChecks)
+                } else {
+                    Button("Updates require a Developer ID release") {}.disabled(true)
+                }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Add Photos…", action: workspace.addPhotos).keyboardShortcut("o").disabled(
                     workspace.locked)

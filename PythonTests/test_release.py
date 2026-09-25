@@ -19,13 +19,31 @@ def checkout(tmp_path):
     scripts.mkdir()
     for source in ROOT.glob("scripts/release*.sh"):
         shutil.copy(source, scripts)
+    shutil.copy(ROOT / "scripts/update_metadata.py", scripts)
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets/sparkle-public-key.txt").write_text("A" * 43 + "=\n")
+    (tmp_path / ".venv/bin").mkdir(parents=True)
+    (tmp_path / ".venv/bin/python").symlink_to(sys.executable)
     (tmp_path / ".artprep-notary-profile").write_text("existing-profile\n")
     binary = tmp_path / "bin"
     binary.mkdir()
     tool = binary / "tool"
     tool.write_text(f"#!{sys.executable}\n" + FAKE_TOOLS.read_text())
     tool.chmod(0o755)
-    for name in ["git", "gh", "security", "xcrun", "codesign", "ditto", "spctl", "bash"]:
+    for name in [
+        "git",
+        "gh",
+        "security",
+        "xcrun",
+        "codesign",
+        "ditto",
+        "spctl",
+        "bash",
+        "generate_keys",
+        "sign_update",
+        "generate_appcast",
+        "curl",
+    ]:
         (binary / name).symlink_to(tool)
     return tmp_path
 
@@ -171,3 +189,77 @@ def test_ci_requires_private_main_builder_and_pinned_source(checkout, failure):
     result = run_release(checkout, "1.0.2", ci=True, failure=failure)
     assert result.returncode != 0
     assert not (checkout / "published").exists()
+
+
+@pytest.mark.parametrize("failure", ["update-key", "update-sign", "update-feed", "nested-sign"])
+def test_update_signing_failure_never_publishes(checkout, failure):
+    result = run_release(checkout, "1.0.3", failure=failure)
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert not (checkout / "published").exists()
+
+
+def test_feed_is_published_with_the_verified_archive(checkout):
+    result = run_release(checkout, "1.0.3")
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = [json.loads(line) for line in (checkout / "calls").read_text().splitlines()]
+    uploads = [args for name, args in calls if name == "gh" and "create" in args]
+    assert any("appcast.xml" in value for value in uploads[0])
+
+
+@pytest.mark.parametrize("failure", ["upload-feed", "download-draft", "draft-mismatch", "promote"])
+def test_incomplete_release_never_becomes_latest(checkout, failure):
+    result = run_release(checkout, "1.0.3", failure=failure)
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert not (checkout / "published").exists()
+
+
+def test_release_creates_a_draft_before_promoting(checkout):
+    result = run_release(checkout, "1.0.3")
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = [json.loads(line) for line in (checkout / "calls").read_text().splitlines()]
+    create = next(
+        args for name, args in calls if name == "gh" and args[:2] == ["release", "create"]
+    )
+    assert "--draft" in create
+    edit = next(args for name, args in calls if name == "gh" and args[:2] == ["release", "edit"])
+    assert "--draft=false" in edit and "--latest" in edit
+
+
+def test_resume_verifies_existing_artifacts_without_building(checkout):
+    first = run_release(checkout, "1.0.3", failure="promote")
+    assert first.returncode != 0
+    (checkout / "calls").unlink()
+    result = run_release(checkout, "resume", "1.0.3")
+    assert result.returncode == 0, result.stdout + result.stderr
+    calls = [json.loads(line) for line in (checkout / "calls").read_text().splitlines()]
+    assert not any(name == "bash" and args[0].endswith("build.sh") for name, args in calls)
+    assert not any(name == "xcrun" and "submit" in args for name, args in calls)
+    assert (checkout / "published").exists()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "resume-tag-mismatch",
+        "unmerged",
+        "already-published",
+        "newer-release",
+        "draft-missing",
+        "draft-foreign-app",
+        "draft-source",
+        "draft-key",
+    ],
+)
+def test_resume_refuses_untrusted_or_obsolete_draft(checkout, failure):
+    first = run_release(checkout, "1.0.3", failure="promote")
+    assert first.returncode != 0
+    result = run_release(checkout, "resume", "1.0.3", failure=failure)
+    assert result.returncode != 0, result.stdout + result.stderr
+    assert not (checkout / "published").exists()
+
+
+def test_public_verification_failure_reports_release_already_published(checkout):
+    result = run_release(checkout, "1.0.3", failure="public-feed")
+    assert result.returncode != 0
+    assert (checkout / "published").exists()
+    assert "Do not rebuild this version" in result.stdout
