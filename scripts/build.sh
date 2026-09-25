@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+bash scripts/sparkle-tools.sh >/dev/null
 version="${1:-$(git describe --tags --abbrev=0 --match 'v[0-9]*')}"
 version="${version#v}"
 if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
@@ -18,6 +19,13 @@ binary="$(swift build -c release --show-bin-path --scratch-path "$cache/build" \
 staging="$(mktemp -d "$cache/bundle.XXXXXX")"
 app="$staging/Art Prep.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/renderer" dist
+mkdir -p "$app/Contents/Frameworks"
+framework="Vendor/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+[[ -d "$framework" ]] || {
+	echo 'Pinned Sparkle macOS framework missing.' >&2
+	exit 1
+}
+cp -RP "$framework" "$app/Contents/Frameworks/"
 cp "$binary" "$app/Contents/MacOS/ArtPrep"
 cp renderer/job.py renderer/render.py "$app/Contents/Resources/renderer/"
 iconset="$staging/AppIcon.iconset"

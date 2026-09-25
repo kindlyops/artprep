@@ -1,6 +1,6 @@
 .build/
 .cache/
-.venv/
+.venv
 __pycache__/
 .ruff_cache/
 *.egg-info/
@@ -9,3 +9,5 @@ dist/
 .superpowers/
 .pytest_cache/
 .artprep-notary-profile
+
+Vendor/Sparkle/Sparkle.xcframework/
