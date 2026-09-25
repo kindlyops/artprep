@@ -15,7 +15,7 @@ verify_release_assets() {
 	[[ "$(plutil -extract ArtPrepSourceCommit raw -o - "$plist")" == "$commit" ]] || fail 'Draft source does not match tag.'
 	[[ "$(plutil -extract SUPublicEDKey raw -o - "$plist")" == "$(cat assets/sparkle-public-key.txt)" ]] || fail 'Draft signing key differs.'
 	codesign --verify --deep --strict \
-		-R 'anchor apple generic and certificate leaf[subject.OU] = "K5U72ZNJ2W" and certificate 1[field.1.2.840.113635.100.6.2.6] exists' \
+		-R '=anchor apple generic and certificate leaf[subject.OU] = "K5U72ZNJ2W" and certificate 1[field.1.2.840.113635.100.6.2.6] exists' \
 		"$extracted/Art Prep.app"
 	xcrun stapler validate "$extracted/Art Prep.app"
 	spctl --assess --type execute --verbose=2 "$extracted/Art Prep.app"

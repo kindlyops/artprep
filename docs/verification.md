@@ -28,15 +28,32 @@ and Gatekeeper acceptance for both; the agent independently verified both code s
 read the accepted submission results. The signed app launches with update controls enabled;
 an offline update check displays a recoverable error.
 
-Actual installation/relaunch remains pending. Sparkle's feed generator cannot access its
-Keychain key or recognize app bundles inside the agent sandbox. A Terminal script now prepares
-and verifies both a production-format feed and a loopback test feed. No release was published.
+Production-format feed metadata and both Ed25519 signatures passed verification with the
+real Sparkle tools. Two native update tests installed 1.0.3 over disposable 1.0.2 copies:
+
+- Offline checks show a recoverable error. A modified signed feed is rejected explicitly.
+- Canceling a download preserves the editing session.
+- Canceling the unsaved-outline relaunch prompt preserves the project. Checking again returns
+  to Install and Relaunch; retrying successfully installs and relaunches 1.0.3.
+- The relaunched app reports that 1.0.3 is current. Its bundle contents match the notarized
+  candidate byte for byte, and its signature passes the expected Developer ID team requirement.
+- All three real GIMP integration tests pass against the installed executable after updating.
+- In a second copy, installation was requested during a real GIMP export. The export produced
+  its XCF, full-size JPEG, social JPEG, and saved outline, and the copy updated to 1.0.3.
+
+The real signature check found a missing `=` prefix on the release script's inline codesign
+requirement. The release boundary test now compiles requirements with Apple's actual `csreq`
+parser: it failed before the fix and passed afterward. All 58 release tests pass. The corrected
+requirement accepts the installed signed bundle; a wrong-team requirement rejects it.
+
+These tests used loopback feeds configured only in disposable bundles before signing. Source
+photos and the user's installed app were untouched. No test version was tagged or published.
 
 Independent review found missing Sparkle redistribution notices. A new regression test failed
 before the fix and passed afterward; all four downloader tests passed. The rebuilt ZIP contains
 the exact 6,154-byte upstream combined license file. No other confirmed code defects were found.
-These checks do not establish a completed signed update installation; publication remains blocked
-on signed integration evidence.
+Signed installation and relaunch are now verified. The public release still needs the merged
+source workflow to build and publish its production-feed bundle.
 
 ## Existing public release
 

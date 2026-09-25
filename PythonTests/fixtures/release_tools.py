@@ -4,6 +4,7 @@ import json
 import os
 import plistlib
 import shutil
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -216,6 +217,11 @@ elif name == "security":
     if failure != "identity":
         print("  1) " + "A" * 40 + ' "Developer ID Application: Example (1234567890)"')
 elif name == "codesign":
+    if "-R" in args:
+        subprocess.run(
+            ["/usr/bin/csreq", "-r", args[args.index("-R") + 1], "-b", os.devnull],
+            check=True,
+        )
     sys.exit(
         1
         if failure == "sign" or (failure == "nested-sign" and "Sparkle.framework" in args[-1])
