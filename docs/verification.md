@@ -21,10 +21,16 @@ The dedicated update key was created in the user's Keychain on 2026-09-25. Its p
 was read back, matched to the user-provided value, and embedded in a successful local build.
 After the user ran setup-updates in Terminal, the production-key signing preflight passed
 from the agent environment. The private key has not been read or exported by the agent.
-A real signed install/relaunch test remains pending: Developer ID codesign reports
-“A timestamp was expected but was not found” in the sandbox, including on a disposable
-system-binary copy. Apple's timestamp endpoint is reachable with curl. The user has been
-asked to run the isolated test-build preparation in Terminal; no release was published.
+Two isolated test builds, versions 1.0.2 and 1.0.3, were signed and notarized from Terminal.
+Apple accepted submissions `4e6247d8-0cee-49c6-aa9e-c87df90d1425` and
+`030f4afd-fc8d-443f-8771-43de95ea2bc0`. The user's Terminal output confirms staple validation
+and Gatekeeper acceptance for both; the agent independently verified both code signatures and
+read the accepted submission results. The signed app launches with update controls enabled;
+an offline update check displays a recoverable error.
+
+Actual installation/relaunch remains pending. Sparkle's feed generator cannot access its
+Keychain key or recognize app bundles inside the agent sandbox. A Terminal script now prepares
+and verifies both a production-format feed and a loopback test feed. No release was published.
 
 Independent review found missing Sparkle redistribution notices. A new regression test failed
 before the fix and passed afterward; all four downloader tests passed. The rebuilt ZIP contains
