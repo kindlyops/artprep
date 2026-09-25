@@ -23,6 +23,7 @@ def download_job(tmp_path):
     with zipfile.ZipFile(archive, "w") as zipped:
         zipped.writestr("Sparkle.xcframework/framework", "reviewed framework")
         zipped.writestr("bin/sign_update", "reviewed tool")
+        zipped.writestr("LICENSE", "Sparkle and bundled dependency notices")
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     (scripts / "sparkle-version.env").write_text(f"version=2.10.0\nsha256={digest}\n")
     binary = tmp_path / "bin"
@@ -84,3 +85,10 @@ def test_interrupted_download_does_not_become_cache(download_job):
     assert not (download_job / "cache/2.10.0/download.zip").exists()
     result = run_download(download_job)
     assert result.returncode == 0, result.stderr
+
+
+def test_preserves_redistribution_notices(download_job):
+    result = run_download(download_job)
+    assert result.returncode == 0, result.stderr
+    notices = Path(result.stdout.strip()).parent / "LICENSE"
+    assert notices.read_text() == "Sparkle and bundled dependency notices"

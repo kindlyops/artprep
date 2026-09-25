@@ -1,40 +1,39 @@
 # Verification
 
-The release was built with warnings treated as errors and checked on the user's Apple Silicon Mac
-with GIMP 3.2.6. No originals were edited by the app.
+## Self-update branch — 2026-09-25
 
-- 13 Swift tests: geometry, malformed/partial projects, EXIF orientation, asymmetric edge sampling,
-  and mutation guards during operations. Core tests: 12; app state tests: 1.
-- 45 Python tests when integration is enabled: request validation, 32 release workflow cases,
-  and three real GIMP integration cases. Without integration enabled, 42 pass and three skip.
-- Integration checks: grayscale and RGB, warm background pixels, artwork pixels, source hash,
-  ICC/sRGB output, social size, new output folders on repeat runs, malformed-project failure.
-- Real painting export inspected: full JPEG 4093×5116, social JPEG 1600×2000. The reopened XCF has
-  three layers, an editable artwork mask, and a hidden original reference.
-- Native interface exercised: project opening, correct photo orientation, cutout view, outline reset,
-  undo, point placement, outline closure, saving three outlines, and cancelling a window close.
-- Ruff, ty (request validator), Swift formatting, shellcheck, shfmt, and local prek hooks passed.
-- One independent code review completed; all three consequential findings received fixes.
+- 19 Swift tests passed: outline geometry, project validation, image orientation, edge refinement,
+  operation guards, disabled updater behavior, and deferred-install lifecycle.
+- 90 Python tests passed with real GIMP integration enabled. This includes release signing and
+  publication gates, draft recovery, strict feed metadata, dependency download validation, and
+  original renderer behavior. Ruff, ty, shellcheck and shfmt passed without warnings.
+- Removing archive URL validation made the metadata tests fail. Removing draft publication made
+  the release test fail. These mutation checks used disposable copies of the code.
+- The built app embeds Sparkle 2.10.0; the upstream archive's SHA-256 matches the committed pin.
+  Dependency tests reject corrupt and interrupted downloads and repair modified framework/tools.
+- Native app control launched the unsigned build and verified its explanatory disabled update
+  menu. A generated disposable project exercised the unsaved-outline prompt: Cancel retained the
+  running editing session. No user photo was changed during this check.
+- Real GIMP tests passed against the new bundled executable, checking rendered pixels, dimensions,
+  sRGB profiles, Unicode/quoted paths, original-file hashes, repeated exports and malformed input.
 
-The app is a personal, locally signed build. It has not been tested on an Intel Mac or every macOS
-version. The minimum deployment target is macOS 14; the supplied executable is arm64. Edge
-refinement remains a reviewed assist, particularly where background objects touch the wood.
+Dedicated update-key setup and a real signed install/relaunch test remain pending. Key creation
+from the agent sandbox returned macOS error 100001 even after a Keychain filesystem grant; the
+user has been asked to run Sparkle's generate_keys in Terminal. The branch permits ad-hoc builds
+without this key but refuses releases without the matching committed public key.
 
-## Release automation
+Independent review found missing Sparkle redistribution notices. A new regression test failed
+before the fix and passed afterward; all four downloader tests passed. The rebuilt ZIP contains
+the exact 6,154-byte upstream combined license file. No other confirmed code defects were found.
+These checks do not establish a completed signed update installation; publication remains blocked
+on the key setup and signed integration evidence.
 
-The release tests replace macOS and GitHub command boundaries, exercising successful publication
-and failure gates for credentials, signing, Apple rejection, malformed responses, stapling,
-Gatekeeper, ZIP verification, changed source, and upload failures. A mutation check removing the
-Apple `Accepted` gate made the rejection test fail. These tests do not simulate Apple's actual
-security assessment.
+## Existing public release
 
-Additional cases cover failing Git commands, an existing tag appearing during notarization,
-automatic patch selection, and Actions building a merged commit while `main` advances. The
-workflow passes actionlint and zizmor, and checkout is pinned to a commit with credentials not
-persisted. The first runner execution still requires a macOS ARM64 runner enabled for this repo.
+Art Prep v1.0.2 was signed with Kindly Ops Developer ID, notarized by Apple, and stapled on
+2026-09-24. The published ZIP was downloaded and its SHA-256 verified. The extracted app passed
+signature, stapled-ticket and Gatekeeper checks. It targets Apple Silicon and macOS 14 or later.
+Intel distribution and every supported macOS version have not been tested.
 
-A real Developer ID build with Hardened Runtime passed all three GIMP integration tests. On this
-agent's execution environment, adding the required secure timestamp failed with “A timestamp was
-expected but was not found,” although Apple's timestamp endpoint responded to a direct request.
-The saved notarization Keychain profile authenticated successfully. No notarized release was
-published during these checks; the script retains the timestamp and notarization requirements.
+The updater is new work after v1.0.2. Users of earlier versions need one manual download of the
+first updater-enabled release. GIMP is separately installed and updated.

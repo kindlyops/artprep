@@ -29,4 +29,5 @@ fi
 cp -RP "$stage/unpacked/Sparkle.xcframework" Vendor/Sparkle/
 if [[ -e "$root/bin" ]]; then mv "$root/bin" "$stage/previous-tools"; fi
 mv "$stage/unpacked/bin" "$root/bin"
+cp "$stage/unpacked/LICENSE" "$root/LICENSE"
 printf '%s/bin\n' "$root"

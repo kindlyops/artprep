@@ -19,4 +19,4 @@ possibly-unresolved-reference = "error"
 python-version = "3.13"
 
 [tool.ty.src]
-include = ["renderer/job.py"]
+include = ["renderer/job.py", "scripts/update_metadata.py"]

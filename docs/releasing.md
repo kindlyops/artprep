@@ -9,7 +9,7 @@ release takes one command:
 
 Choose the next unused version, such as `1.0.3` for the following release. Merge your changes
 through a pull request first, switch to `main`, and pull. The command requires a clean checkout
-matching `origin/main`. It publishes to the GitHub repository identified by this checkout's `origin`.
+matching `origin/main`. It requires `origin` to identify `kindlyops/artprep` and publishes there.
 It does not push source changes to `main`.
 
 ## One-time setup
@@ -61,7 +61,35 @@ Do not put a password or private key in a script, environment variable, Git, or 
 Install the development tools and hash-locked Python test environment described in the
 [README](../README.md#build-and-check), plus GitHub CLI and GIMP 3. ImageMagick is needed for
 the real export tests. Sign in to GitHub CLI with `gh auth login`; your account needs repository
-release permission. `./scripts/release.sh --help` shows the two commands.
+release permission. `./scripts/release.sh --help` lists the available commands.
+
+## Update-signing setup
+
+Art Prep uses Sparkle 2.10.0 with a dedicated Keychain account, `local.artprep.mac`.
+On the release Mac, run once from the repository:
+
+```sh
+./scripts/release.sh setup-updates
+```
+
+This creates or reuses the account and writes **only its public key** to
+`assets/sparkle-public-key.txt`. Commit that file through the feature PR before the first
+updater-enabled release. When it already exists, setup requires the Keychain key to match it.
+A missing public key permits ad-hoc development builds but blocks releases.
+
+Tools live at `~/Library/Caches/ArtPrep/Sparkle/2.10.0/bin`. Keychain Access may ask to allow
+`generate_keys`, `sign_update`, and `generate_appcast`; authorize only these required tools.
+Preflight signing is bounded to 60 seconds so unattended jobs fail rather than wait indefinitely.
+If an agent sandbox blocks creation, run the setup command in Terminal yourself.
+
+Keep a secure backup of the signing key outside Git and chat using Sparkle's documented key
+export/import workflow. Never delete the key to fix an access problem. Signed ZIP updates verify
+before extraction, so a lost or changed key requires Sparkle's supported rotation procedure;
+do not silently replace the embedded public key. See [Sparkle setup](https://sparkle-project.org/documentation/).
+
+The archive and XML feed are signed with this key. The app requires feed signatures and validates
+updates before extraction. The feed is the `appcast.xml` asset of the latest public release;
+no Pages site, additional repository, or new GitHub token is needed.
 
 ## GitHub Actions releases
 
@@ -118,14 +146,18 @@ build or publish an app. Fix the reported authentication failure before requesti
 
 1. Checks the certificate, GitHub login, Apple credential, clean `main`, and unused release tag.
 2. Runs Swift and Python checks, then builds in local temporary storage outside iCloud.
-3. Signs the app with Developer ID, Hardened Runtime, and a secure timestamp. Runs the real
+3. Signs Sparkle's nested helpers and framework inside out, then the app with Developer ID, Hardened Runtime, and a secure timestamp. Runs the real
    GIMP export tests against that signed executable.
 4. Uploads the app ZIP to Apple's notary service and requires an explicit `Accepted` result.
 5. Staples Apple's ticket to the app, makes a fresh ZIP, extracts it, and verifies the signature,
    stapled ticket, and Gatekeeper assessment on that extracted copy.
-6. Rechecks the source commit, atomically creates a new GitHub tag at that exact commit, then
-   creates a release requiring that tag,
-   uploading `Art-Prep-vVERSION-macOS-arm64.zip` and its `.sha256` checksum.
+6. Generates and verifies a signed feed describing the final ZIP and its exact version, size,
+   download URL, macOS requirement and architecture.
+7. Rechecks the source commit, creates a tag and draft release, then uploads the ZIP, checksum
+   and `appcast.xml`. Downloads the draft assets and verifies their bytes, signatures, source
+   identity, ticket and Gatekeeper status before publishing as latest.
+8. Verifies the public feed and download URL. A failure here reports that publication already
+   happened; do not create another release just to retry a network check.
 
 The build version comes from the release command; development builds default to the nearest
 version tag. Both use `scripts/build.sh`, so packaging and the icon stay consistent. There is no
@@ -165,12 +197,15 @@ For the manual `notarytool` commands below, also pass
   `xcrun notarytool history --keychain-profile YOUR_PROFILE` if no ID was returned. Inspect with
   `xcrun notarytool info SUBMISSION_ID --keychain-profile YOUR_PROFILE`. Rerunning the release
   command builds and submits again; it does not automatically resume an earlier submission.
-- **GitHub upload fails:** inspect `gh release view vVERSION` and the repository's releases page.
-  GitHub may have created a draft or tag before the connection failed. The script refuses to
-  overwrite it. If nothing exists, rerun. If a draft exists, finish that draft using the verified
-  files in `dist/`; if only a tag exists, create its release using those same verified files.
-  Do not delete or move a published tag to force a retry. An automatic retry chooses a new patch
-  after an existing tag, including one left by a failed upload.
+- **GitHub upload or promotion fails:** inspect `gh release view vVERSION`. Keep the original
+  staging directory. If a draft is missing an asset, upload only the original verified ZIP,
+  checksum or signed feed from that staging directory with `gh release upload vVERSION FILE`.
+  If only the tag exists, create a draft with those exact artifacts first. Then check out the
+  tagged source in a clean checkout and run `./scripts/release.sh resume VERSION`.
+  Recovery verifies the tag is merged, validates every downloaded artifact, and refuses an
+  already-published or obsolete version. It never rebuilds or changes published assets.
+  Do not delete or move tags, regenerate a feed with different content, or retry `auto` for
+  draft recovery: `auto` chooses a new patch after existing tags.
 - **Source changed during the run:** commit and merge the intended changes, update local `main`,
   and rerun. A source change is never silently included under the previous commit's tag.
 
