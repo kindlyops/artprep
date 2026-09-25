@@ -19,14 +19,18 @@
 
 The dedicated update key was created in the user's Keychain on 2026-09-25. Its public key
 was read back, matched to the user-provided value, and embedded in a successful local build.
-Private-key access for signing and a real signed install/relaunch test remain pending; the first
-signing probe timed out. The private key has not been read or exported by the agent.
+After the user ran setup-updates in Terminal, the production-key signing preflight passed
+from the agent environment. The private key has not been read or exported by the agent.
+A real signed install/relaunch test remains pending: Developer ID codesign reports
+“A timestamp was expected but was not found” in the sandbox, including on a disposable
+system-binary copy. Apple's timestamp endpoint is reachable with curl. The user has been
+asked to run the isolated test-build preparation in Terminal; no release was published.
 
 Independent review found missing Sparkle redistribution notices. A new regression test failed
 before the fix and passed afterward; all four downloader tests passed. The rebuilt ZIP contains
 the exact 6,154-byte upstream combined license file. No other confirmed code defects were found.
 These checks do not establish a completed signed update installation; publication remains blocked
-on signing access and signed integration evidence.
+on signed integration evidence.
 
 ## Existing public release
 
